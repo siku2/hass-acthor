@@ -1,0 +1,9 @@
+write_power:
+  description: Write the power
+  fields:
+    entity_id:
+      description: Name(s) of the entities to set
+      example: "sensor.ac_thor"
+    value:
+      description: Power in Watt
+      example: "500"

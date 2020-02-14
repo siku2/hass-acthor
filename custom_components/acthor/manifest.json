@@ -1,0 +1,7 @@
+{
+  "domain": "acthor",
+  "name": "AC•THOR",
+  "dependencies": [],
+  "codeowners": ["siku2"],
+  "requirements": ["pymodbus~=2.3.0"]
+}
