@@ -1,7 +1,7 @@
 import abc
 import asyncio
 import datetime
-from typing import Any, Coroutine, Generic, Iterable, Iterator, TypeVar
+from typing import Any, Coroutine, Generic, Iterable, Iterator, TypeVar, Tuple
 
 from .abc import ABCModbusProtocol, MultiRegister, SingleRegister
 
@@ -100,15 +100,27 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
     temp8 = ReadOnly(1036, 10)
     """°C"""
 
-    ww1_temp_max = ReadWrite(1002, 10)
+    _temp_range_2_7 = MultiRegister(1030, 7)
+
+    ww1_max = ReadWrite(1002, 10)
     """°C"""
+    ww_2_max = ReadWrite(1037, 10)
+    """°C"""
+    ww_3_max = ReadWrite(1038, 10)
+    """°C"""
+
+    ww1_min = ReadWrite(1006, 10)
+    """°C"""
+    ww_2_min = ReadWrite(1039, 10)
+    """°C"""
+    ww_3_min = ReadWrite(1040, 10)
+    """°C"""
+
     status = ReadOnly(1003)
     power_timeout = ReadWrite(1004)
     """sec"""
     boost_mode = ReadWrite(1005)
     """0: off, 1: on, 3: relay boost on"""
-    ww1_min = ReadWrite(1006, 10)
-    """°C"""
 
     boost_time1_start = ReadWrite(1007)
     """Hour"""
@@ -148,15 +160,6 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
 
     ps_firmware_version = ReadOnly(1017)
     serial_number = ReadOnlyText(1018, 8)
-
-    ww_2_max = ReadWrite(1037, 10)
-    """°C"""
-    ww_3_max = ReadWrite(1038, 10)
-    """°C"""
-    ww_2_min = ReadWrite(1039, 10)
-    """°C"""
-    ww_3_min = ReadWrite(1040, 10)
-    """°C"""
 
     rh1_max = ReadWrite(1041, 10)
     """°C"""
@@ -321,6 +324,10 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
         3 ... power stage to Out-3
     bit 11 – 0: power stage power 0 – 3.000 (watt)
     """
+
+    async def get_temps(self) -> Tuple[float, float, float, float, float, float, float, float]:
+        first_temp, other_temps_raw = await asyncio.gather(self.temp1, self._temp_range_2_7.read(self))
+        return (first_temp, *map(lambda t: t / 10, other_temps_raw))
 
     async def get_time(self) -> datetime.time:
         hour, minute, second = await asyncio.gather(self.hour, self.minute, self.second)

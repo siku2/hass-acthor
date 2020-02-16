@@ -33,8 +33,7 @@ async def async_setup(hass: HomeAssistantType, config: ConfigType) -> bool:
     acthor_config = config[DOMAIN]
 
     device = hass.data[DATA_ACTHOR] = await ACThor.connect(acthor_config[CONF_HOST])
-    await device.set_power_timeout(60)
-
+    device.start()
     await async_load_platform(hass, "switch", DOMAIN, {}, config)
 
     return True
