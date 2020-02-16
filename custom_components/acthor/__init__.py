@@ -1,12 +1,40 @@
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+import logging
+
+import voluptuous as vol
+from homeassistant.const import ATTR_ENTITY_ID, CONF_HOST
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.discovery import async_load_platform
+from homeassistant.helpers.typing import ConfigType, HomeAssistantType
+
+from .acthor import ACThor
+
+__all__ = ["DOMAIN", "DATA_ACTHOR"]
+
+logger = logging.getLogger(__name__)
 
 DOMAIN = "acthor"
+DATA_ACTHOR = "data_acthor"
+
+CONFIG_SCHEMA = vol.Schema({
+    DOMAIN: vol.Schema({
+        vol.Required(CONF_HOST): cv.string,
+    }),
+}, extra=vol.ALLOW_EXTRA)
+
+ATTR_VALUE = "value"
+
+WRITE_POWER_SCHEMA = vol.Schema({
+    ATTR_ENTITY_ID: cv.entity_id,
+    ATTR_VALUE: cv.positive_int,
+})
 
 
-def setup(hass: HomeAssistant, config: dict) -> bool:
+async def async_setup(hass: HomeAssistantType, config: ConfigType) -> bool:
+    acthor_config = config[DOMAIN]
+
+    device = hass.data[DATA_ACTHOR] = await ACThor.connect(acthor_config[CONF_HOST])
+    await device.set_power_timeout(60)
+
+    await async_load_platform(hass, "switch", DOMAIN, {}, config)
+
     return True
-
-
-async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry):
-    await hass.async_add_job(hass.config_entries.async_forward_entry_setup(config_entry, "sensor"))
