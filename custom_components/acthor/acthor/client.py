@@ -88,6 +88,37 @@ class ACThorRegisters(ACThorRegistersMixin):
             await protocol.write_registers(address, values)
 
 
+class StatusCode(int):
+    @property
+    def is_off(self) -> bool:
+        return self == 0
+
+    @property
+    def is_startup(self) -> bool:
+        return 1 <= self <= 8
+
+    @property
+    def is_operation(self) -> bool:
+        return 9 <= self < 200
+
+    @property
+    def is_error(self) -> bool:
+        return self >= 200
+
+    @property
+    def name(self) -> str:
+        if self.is_off:
+            return "off"
+        elif self.is_startup:
+            return "starting"
+        elif self.is_operation:
+            return "on"
+        elif self.is_error:
+            return "error"
+        else:
+            return "unknown"
+
+
 class OperationState(enum.IntEnum):
     WAITING_FOR_EXCESS = 0
     HEATING_WITH_EXCESS = 1
@@ -120,7 +151,7 @@ class ACThor:
         self._power_excess = 0
         self._power_override = 0
 
-        self._status: Optional[int] = None
+        self._status: Optional[StatusCode] = None
         self._load_nominal_power: Optional[int] = None
         self._power: Optional[int] = None
         self._temps: Dict[int, float] = {}
@@ -141,11 +172,12 @@ class ACThor:
         return self.registers.available
 
     @property
-    def status(self) -> Optional[int]:
+    def status(self) -> Optional[StatusCode]:
         return self._status
 
     @property
     def power(self) -> Optional[int]:
+        """Current power consumed by the device"""
         return self._power
 
     @property
@@ -154,6 +186,7 @@ class ACThor:
 
     @property
     def power_excess(self) -> int:
+        """Current power excess sent to the device."""
         return self._power_excess
 
     @property
@@ -173,7 +206,7 @@ class ACThor:
         self.__update_loop_task.cancel()
 
     async def __read_update(self) -> None:
-        self._status = await self.registers.status
+        self._status = StatusCode(await self.registers.status)  # TODO is this necessary?
         self._power = await self.registers.power
         self._load_nominal_power = await self.registers.load_nominal_power
 
@@ -205,21 +238,43 @@ class ACThor:
 
             await asyncio.sleep(update_interval)
 
-    def _write_power(self, watts: int) -> None:
-        self.registers.power = watts
+    async def _force_update_power(self) -> None:
+        power = self._power_override or self._power_excess
+        self.registers.power = power
 
         if self._load_nominal_power is None:
-            actual_power = watts
+            actual_power = power
         else:
-            actual_power = min(watts, self._load_nominal_power)
+            actual_power = min(power, self._load_nominal_power)
 
         self._power = actual_power
 
     async def set_power_excess(self, watts: int) -> None:
+        """Set the current power excess.
+
+        If the client is running (`start` has been called) this value will be
+        kept and sent to the device until it is updated by another call to this
+        function.
+
+        `power_override` takes precedence over this!
+
+        Args:
+            watts: Amount of power in watts.
+        """
         self._power_excess = watts
-        self._write_power(watts)
+        await self._force_update_power()
 
     async def set_power_override(self, watts: Union[bool, int]) -> None:
+        """Set the power override.
+
+        This overrides the `power_excess` unless it is 0.
+        Use this
+
+        Args:
+            watts: Amount of power in watts.
+                `True` is short for granting the 'load nominal power'.
+                `False` is 0.
+        """
         if watts is True:
             nominal_power = await self.registers.load_nominal_power
             watts = nominal_power if nominal_power else 1000
@@ -227,9 +282,8 @@ class ACThor:
             watts = 0
 
         self._power_override = watts
-        self._write_power(watts)
+        await self._force_update_power()
 
     async def trigger_boost(self) -> None:
         # FIXME doesn't seem to work
-        self.registers.boost_mode = BoostMode.ON
-        self.registers.boost_activate = 20000
+        self.registers.boost_activate = 1

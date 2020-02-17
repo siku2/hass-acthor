@@ -60,17 +60,26 @@ class SingleRegister(BaseRegister):
 
 
 class MultiRegister(BaseRegister):
-    __slots__ = ("_length",)
+    __slots__ = ("_length", "_factor")
 
-    def __init__(self, addr: int, length: int) -> None:
+    def __init__(self, addr: int, length: int, *, factor: float = None) -> None:
         super().__init__(addr)
         self._length = length
+        self._factor = factor
 
-    async def read(self, protocol: ABCModbusProtocol) -> Tuple[int, ...]:
-        return await protocol.read_registers(self._addr, self._length)
+    async def read(self, protocol: ABCModbusProtocol) -> Tuple[Union[int, float], ...]:
+        values = await protocol.read_registers(self._addr, self._length)
+        fac = self._factor
+        if fac is None:
+            return values
 
-    async def write(self, protocol: ABCModbusProtocol, values: Iterable[int]) -> None:
-        if not isinstance(values, Sized):
+        return tuple(val / fac for val in values)
+
+    async def write(self, protocol: ABCModbusProtocol, values: Iterable[Union[int, float]]) -> None:
+        fac = self._factor
+        if fac is not None:
+            values = tuple(fac * val for val in values)
+        elif not isinstance(values, Sized):
             values = tuple(values)
 
         if len(values) != self._length:

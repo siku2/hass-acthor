@@ -72,9 +72,10 @@ class ACThorSwitch(ACThorEntity, SwitchDevice):
     async def async_update(self) -> None:
         self._update_today_energy()
 
-        attrs = self._attrs
-        attrs["status"] = self._device.status
-        attrs["load_nominal_power"] = self._device.load_nominal_power or 0
+        dev = self._device
+        reg = dev.registers
 
-        for sensor, temp in self._device.temperatures.items():
-            attrs[f"temperature_{sensor}"] = temp
+        attrs = self._attrs
+        attrs["status"] = dev.status
+        attrs["load_nominal_power"] = dev.load_nominal_power or 0
+        attrs["temperature"] = await reg.tempchip

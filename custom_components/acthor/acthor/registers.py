@@ -101,23 +101,30 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
     """°C"""
 
     # Sensors 2-8 can be read with a single instruction
-    _temp_range_2_8 = MultiRegister(1030, 7)
+    _temp_range_2_8 = MultiRegister(1030, 7, factor=10)
 
     ww1_max = ReadWrite(1002, 10)
     """°C"""
-    ww_2_max = ReadWrite(1037, 10)
+    ww2_max = ReadWrite(1037, 10)
     """°C"""
-    ww_3_max = ReadWrite(1038, 10)
+    ww3_max = ReadWrite(1038, 10)
     """°C"""
 
     ww1_min = ReadWrite(1006, 10)
     """°C"""
-    ww_2_min = ReadWrite(1039, 10)
+    ww2_min = ReadWrite(1039, 10)
     """°C"""
-    ww_3_min = ReadWrite(1040, 10)
+    ww3_min = ReadWrite(1040, 10)
     """°C"""
 
     status = ReadOnly(1003)
+    """
+    
+    0..... Off
+    1-8... device start-up
+    9... operation
+    >=200 Error states power stage
+    """
     power_timeout = ReadWrite(1004)
     """sec"""
     boost_mode = ReadWrite(1005)
@@ -135,6 +142,9 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
     hour = ReadWrite(1009)
     minute = ReadWrite(1010)
     second = ReadWrite(1011)
+
+    _hms_range = MultiRegister(1009, 3)
+
     boost_activate = ReadWrite(1012)
     number = ReadWrite(1013)
     max_power = ReadWrite(1014)
@@ -190,6 +200,8 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
     """0..37"""
     dst_correction = ReadWrite(1052)
     """0, 1"""
+
+    _time_correction_range = MultiRegister(1051, 2)
 
     legionella_interval = ReadWrite(1053)
     """Days"""
@@ -256,15 +268,15 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
     control_type = ReadWrite(1070)
     """
     
-    1 = http
-    2 = Modbus TCP
-    3 = Fronius Auto
-    4 = Fronius Manual
-    5 = SMA
-    6 = Steca / Kostal Piko MP
-    7 = Varta Auto
-    8 = Varta Manual
-    9 = my-PV Power Meter Auto
+    1  = http
+    2  = Modbus TCP
+    3  = Fronius Auto
+    4  = Fronius Manual
+    5  = SMA
+    6  = Steca / Kostal Piko MP
+    7  = Varta Auto
+    8  = Varta Manual
+    9  = my-PV Power Meter Auto
     10 = my-PV Power Meter Manual
     11 = my-PV Power Meter Direkt (not readable, no network connection)
     12 = reserved
@@ -327,11 +339,24 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
     """
 
     async def get_temps(self) -> Tuple[float, float, float, float, float, float, float, float]:
-        first_temp, other_temps_raw = await asyncio.gather(self.temp1, self._temp_range_2_8.read(self))
-        return (first_temp, *map(lambda t: t / 10, other_temps_raw))
+        """Get the temperatures.
+
+        Reads all eight temperature sensors with only two instructions.
+
+        Returns:
+            8-tuple containing the temperatures in celsius.
+        """
+        first_temp, other_temps = await asyncio.gather(self.temp1, self._temp_range_2_8.read(self))
+        return (first_temp, *other_temps)
+
+    async def get_temp(self, sensor: int) -> float:
+        if not 1 <= sensor <= 8:
+            raise ValueError("sensor must be in range(1, 9)")
+
+        return await getattr(self, f"temp{sensor}")
 
     async def get_time(self) -> datetime.time:
-        hour, minute, second = await asyncio.gather(self.hour, self.minute, self.second)
+        hour, minute, second = await self._hms_range.read(self)
 
         # TODO build tzinfo
         tzinfo = datetime.timezone.utc

@@ -1,11 +1,10 @@
 import logging
 
 import voluptuous as vol
-from homeassistant.const import ATTR_ENTITY_ID, CONF_HOST, CONF_NAME
-from homeassistant.core import State
+from homeassistant.const import CONF_HOST, CONF_NAME
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.discovery import async_load_platform
-from homeassistant.helpers.typing import ConfigType, EventType, HomeAssistantType, ServiceCallType
+from homeassistant.helpers.typing import ConfigType, HomeAssistantType, ServiceCallType
 
 from .acthor import ACThor
 
@@ -22,7 +21,6 @@ CONFIG_SCHEMA = vol.Schema({
     DOMAIN: vol.Schema({
         vol.Required(CONF_HOST): cv.string,
         vol.Optional(CONF_NAME, default="AC•THOR"): cv.string,
-        vol.Optional(CONF_POWER_ENTITY_ID): cv.entity_id
     }),
 }, extra=vol.ALLOW_EXTRA)
 
@@ -37,27 +35,25 @@ SERVICE_SET_POWER_SCHEMA = vol.Schema({
     vol.Optional(ATTR_OVERRIDE, default=False): cv.boolean,
 })
 
+PLATFORMS = ("sensor", "switch", "water_heater")
+
 
 async def async_setup(hass: HomeAssistantType, config: ConfigType) -> bool:
     acthor_config: ConfigType = config[DOMAIN]
     hass.data[DATA_ACTHOR] = await Component.load(hass, acthor_config)
 
-    await async_load_platform(hass, "switch", DOMAIN, {}, config)
+    for platform in PLATFORMS:
+        await async_load_platform(hass, platform, DOMAIN, {}, config)
 
     return True
 
 
 class Component:
     def __init__(self, hass: HomeAssistantType, device: ACThor, *,
-                 device_name: str,
-                 power_entity_id: str = None) -> None:
+                 device_name: str) -> None:
         self.hass = hass
         self.device = device
         self.device_name = device_name
-        self._power_entity_id = power_entity_id
-
-        if power_entity_id:
-            hass.bus.async_listen("state_changed", self.__handle_state_change)
 
         hass.services.async_register(DOMAIN, SERVICE_ACTIVATE_BOOST, self.__handle_activate_boost,
                                      SERVICE_ACTIVATE_BOOST_SCHEMA)
@@ -70,24 +66,7 @@ class Component:
         device.start()
 
         return cls(hass, device,
-                   device_name=config[CONF_NAME],
-                   power_entity_id=config.get(CONF_POWER_ENTITY_ID))
-
-    async def __handle_state_change(self, event: EventType) -> None:
-        data = event.data
-        entity_id = data[ATTR_ENTITY_ID]
-        if entity_id != self._power_entity_id:
-            return
-
-        new_state: State = data["new_state"]
-        try:
-            power = int(float(new_state.state))
-        except ValueError:
-            logger.warning("state %r from %r isn't a number", new_state.state, entity_id)
-            return
-
-        logger.debug("excess power: %r", power)
-        await self.device.set_power_excess(power)
+                   device_name=config[CONF_NAME])
 
     async def __handle_activate_boost(self, call: ServiceCallType) -> None:
         await self.device.trigger_boost()
