@@ -6,11 +6,11 @@ from .acthor import ACThor
 
 
 class ACThorEntity(Entity):
-    _device: ACThor
-    __name: Optional[str]
-
-    def __init__(self, device: ACThor, *, name: str = None) -> None:
+    def __init__(self, device: ACThor, *, sensor_type: str, name: str = None) -> None:
+        super().__init__()
         self._device = device
+        self._sensor_type = sensor_type
+        self._unique_id = f"{self._device.serial_number}-{sensor_type}"
         self.__name = name
 
     @property
@@ -23,5 +23,4 @@ class ACThorEntity(Entity):
 
     @property
     def unique_id(self) -> str:
-        # TODO need device type suffix
-        return self._device.serial_number
+        return self._unique_id

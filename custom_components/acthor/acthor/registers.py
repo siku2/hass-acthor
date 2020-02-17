@@ -1,7 +1,7 @@
 import abc
 import asyncio
 import datetime
-from typing import Any, Coroutine, Generic, Iterable, Iterator, TypeVar, Tuple
+from typing import Any, Coroutine, Generic, Iterable, Iterator, Tuple, TypeVar
 
 from .abc import ABCModbusProtocol, MultiRegister, SingleRegister
 
@@ -100,7 +100,8 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
     temp8 = ReadOnly(1036, 10)
     """°C"""
 
-    _temp_range_2_7 = MultiRegister(1030, 7)
+    # Sensors 2-8 can be read with a single instruction
+    _temp_range_2_8 = MultiRegister(1030, 7)
 
     ww1_max = ReadWrite(1002, 10)
     """°C"""
@@ -326,7 +327,7 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
     """
 
     async def get_temps(self) -> Tuple[float, float, float, float, float, float, float, float]:
-        first_temp, other_temps_raw = await asyncio.gather(self.temp1, self._temp_range_2_7.read(self))
+        first_temp, other_temps_raw = await asyncio.gather(self.temp1, self._temp_range_2_8.read(self))
         return (first_temp, *map(lambda t: t / 10, other_temps_raw))
 
     async def get_time(self) -> datetime.time:

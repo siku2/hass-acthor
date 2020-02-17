@@ -5,7 +5,7 @@ from typing import Any, Optional
 from homeassistant.components.switch import SwitchDevice
 from homeassistant.helpers.typing import ConfigType, HomeAssistantType
 
-from . import DATA_ACTHOR
+from . import get_component
 from .acthor import ACThor
 from .common import ACThorEntity
 
@@ -18,17 +18,19 @@ async def async_setup_platform(hass: HomeAssistantType, config: ConfigType, add_
     if discovery_info is None:
         return
 
-    device = hass.data[DATA_ACTHOR]
-    add_entities((ACThorSwitch(device),))
+    component = get_component(hass)
+    entity = ACThorSwitch(component.device, name=component.device_name)
+    add_entities((entity,))
 
 
 class ACThorSwitch(ACThorEntity, SwitchDevice):
     def __init__(self, device: ACThor, *, name: str = None) -> None:
-        super().__init__(device, name=name)
+        super().__init__(device, name=name, sensor_type="switch")
         self._attrs = {}
 
         self._last_update = time.time()
         self._today_energy = 0
+        # TODO reset after 1 day
 
     @property
     def device_state_attributes(self) -> dict:
@@ -68,11 +70,11 @@ class ACThorSwitch(ACThorEntity, SwitchDevice):
         self._today_energy += watt_hours / 1000
 
     async def async_update(self) -> None:
-        self._attrs.clear()
         self._update_today_energy()
 
         attrs = self._attrs
+        attrs["status"] = self._device.status
+        attrs["load_nominal_power"] = self._device.load_nominal_power or 0
+
         for sensor, temp in self._device.temperatures.items():
             attrs[f"temperature_{sensor}"] = temp
-
-        attrs["status"] = self._device.status

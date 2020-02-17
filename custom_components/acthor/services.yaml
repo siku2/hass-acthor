@@ -1,9 +1,13 @@
-write_power:
-  description: Write the power
+activate_boost:
+  description: Activate the boost mode
+
+ser_power:
+  description: Set the amount of power to be used by the device
   fields:
-    entity_id:
-      description: Name(s) of the entities to set
-      example: "sensor.ac_thor"
-    value:
-      description: Power in Watt
-      example: "500"
+    power:
+      description: Excess power in watts
+      example: 500
+
+    override:
+      description: Whether to set the override power. Defaults to false.
+      example: true

@@ -98,6 +98,16 @@ class OperationState(enum.IntEnum):
     RED_CROSS_FLASHES = 5
 
 
+class BoostMode(enum.IntEnum):
+    OFF = 0
+    ON = 1
+    RELAY_BOOST_ON = 3
+
+    @property
+    def is_on(self) -> bool:
+        return self is not self.OFF
+
+
 class ACThor:
     def __init__(self, registers: ACThorRegistersMixin, serial_number: str, *,
                  loop_interval: float = 20) -> None:
@@ -137,6 +147,10 @@ class ACThor:
     @property
     def power(self) -> Optional[int]:
         return self._power
+
+    @property
+    def load_nominal_power(self) -> Optional[int]:
+        return self._load_nominal_power
 
     @property
     def power_excess(self) -> int:
@@ -214,3 +228,8 @@ class ACThor:
 
         self._power_override = watts
         self._write_power(watts)
+
+    async def trigger_boost(self) -> None:
+        # FIXME doesn't seem to work
+        self.registers.boost_mode = BoostMode.ON
+        self.registers.boost_activate = 20000
