@@ -365,3 +365,7 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
             hour, minute, second,
             tzinfo=tzinfo,
         )
+
+    async def get_control_firmware_version(self) -> Tuple[int, int]:
+        maj, sub = await asyncio.gather(self.control_firmware_version, self.control_firmware_subversion)
+        return maj, sub

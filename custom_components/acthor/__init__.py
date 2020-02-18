@@ -1,8 +1,9 @@
 import logging
 
 import voluptuous as vol
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_NAME
-from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import config_validation as cv, device_registry as dr
 from homeassistant.helpers.discovery import async_load_platform
 from homeassistant.helpers.typing import ConfigType, HomeAssistantType, ServiceCallType
 
@@ -49,6 +50,21 @@ async def async_setup(hass: HomeAssistantType, config: ConfigType) -> bool:
         await async_load_platform(hass, "water_heater", DOMAIN, True, config)
 
     return True
+
+
+async def async_setup_entry(hass: HomeAssistantType, entry: ConfigEntry) -> None:
+    component = get_component(hass)
+    dev = component.device
+    reg = dev.registers
+
+    device_registry = await dr.async_get_registry(hass)
+    device_registry.async_get_or_create(
+        config_entry_id=entry.entry_id,
+        identifiers={(DOMAIN, dev.serial_number)},
+        manufacturer="my-PV",
+        name=component.device_name,
+        sw_version=".".join(await reg.get_control_firmware_version()),
+    )
 
 
 class Component:
