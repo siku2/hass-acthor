@@ -1,4 +1,4 @@
 {
   "name": "AC•THOR",
-  "iot_class": "Local Push"
+  "iot_class": "Local Polling"
 }

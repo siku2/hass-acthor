@@ -26,15 +26,10 @@ async def async_setup_platform(hass: HomeAssistantType, config: ConfigType, add_
 class ACThorSwitch(ACThorEntity, SwitchDevice):
     def __init__(self, device: ACThor, *, name: str = None) -> None:
         super().__init__(device, name=name, sensor_type="switch")
-        self._attrs = {}
 
         self._last_update = time.time()
         self._today_energy = 0
         # TODO reset after 1 day
-
-    @property
-    def device_state_attributes(self) -> dict:
-        return self._attrs
 
     @property
     def is_on(self) -> bool:
@@ -71,11 +66,3 @@ class ACThorSwitch(ACThorEntity, SwitchDevice):
 
     async def async_update(self) -> None:
         self._update_today_energy()
-
-        dev = self._device
-        reg = dev.registers
-
-        attrs = self._attrs
-        attrs["status"] = dev.status
-        attrs["load_nominal_power"] = dev.load_nominal_power or 0
-        attrs["temperature"] = await reg.tempchip

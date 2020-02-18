@@ -35,15 +35,18 @@ SERVICE_SET_POWER_SCHEMA = vol.Schema({
     vol.Optional(ATTR_OVERRIDE, default=False): cv.boolean,
 })
 
-PLATFORMS = ("sensor", "switch", "water_heater")
-
 
 async def async_setup(hass: HomeAssistantType, config: ConfigType) -> bool:
     acthor_config: ConfigType = config[DOMAIN]
-    hass.data[DATA_ACTHOR] = await Component.load(hass, acthor_config)
+    component = hass.data[DATA_ACTHOR] = await Component.load(hass, acthor_config)
 
-    for platform in PLATFORMS:
-        await async_load_platform(hass, platform, DOMAIN, {}, config)
+    operation_mode = await component.device.operation_mode
+
+    for platform in ("sensor", "switch"):
+        await async_load_platform(hass, platform, DOMAIN, True, config)
+
+    if operation_mode.has_ww:
+        await async_load_platform(hass, "water_heater", DOMAIN, True, config)
 
     return True
 

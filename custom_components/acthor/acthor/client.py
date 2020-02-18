@@ -4,9 +4,9 @@ import functools
 import logging
 from typing import Callable, Dict, Iterable, Optional, Tuple, Union
 
-from pymodbus.client.asynchronous.asyncio import ModbusClientProtocol, ReconnectingAsyncioModbusTcpClient, \
+# FIXME switch back to pymodbus once HomeAssistant uses a compatible version
+from .pymodbus_vendor.client.asynchronous.asyncio import ModbusClientProtocol, ReconnectingAsyncioModbusTcpClient, \
     init_tcp_client
-
 from .registers import ACThorRegistersMixin
 
 __all__ = ["ACThorRegisters", "ACThor",
@@ -139,6 +139,29 @@ class BoostMode(enum.IntEnum):
         return self is not self.OFF
 
 
+class OperationMode(enum.IntEnum):
+    WW_3KW = 1
+    WW_LAYER = 2
+    WW_6KW = 3
+    WW_AND_PUMP = 4
+    WW_AND_HEATING = 5
+    HEATING = 6
+    WW_AND_PWM = 7
+    FREQ_MODE = 8
+
+    @property
+    def single_mode(self) -> bool:
+        return self not in (self.WW_AND_PUMP, self.WW_AND_HEATING, self.WW_AND_PWM)
+
+    @property
+    def has_ww(self) -> bool:
+        return self.WW_3KW <= self <= self.WW_AND_HEATING or self == self.WW_AND_PWM
+
+    @property
+    def has_heating(self) -> bool:
+        return self in (self.HEATING, self.WW_AND_HEATING)
+
+
 class ACThor:
     def __init__(self, registers: ACThorRegistersMixin, serial_number: str, *,
                  loop_interval: float = 20) -> None:
@@ -170,6 +193,10 @@ class ACThor:
     @property
     def available(self) -> bool:
         return self.registers.available
+
+    @property
+    async def operation_mode(self) -> OperationMode:
+        return OperationMode(await self.registers.operation_mode)
 
     @property
     def status(self) -> Optional[StatusCode]:

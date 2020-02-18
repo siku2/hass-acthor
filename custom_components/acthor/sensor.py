@@ -1,4 +1,4 @@
-from homeassistant.const import STATE_UNKNOWN
+from homeassistant.const import DEVICE_CLASS_POWER, POWER_WATT, STATE_OFF, STATE_UNKNOWN
 from homeassistant.helpers.typing import ConfigType, HomeAssistantType
 
 from . import ACThor, get_component
@@ -28,8 +28,29 @@ class ACThorSensor(ACThorEntity):
     def state(self) -> str:
         return self._state
 
-    async def async_update(self) -> None:
-        self._state = self._device.status.name
+    @property
+    def unit_of_measurement(self) -> str:
+        return POWER_WATT
 
-        for sensor, temp in self._device.temperatures.items():
-            self._attrs[f"temp_sensor_{sensor}"] = temp
+    @property
+    def device_class(self) -> str:
+        return DEVICE_CLASS_POWER
+
+    async def async_update(self) -> None:
+        dev = self._device
+        reg = dev.registers
+
+        power_target = dev.power_target
+        if power_target:
+            self._state = str(power_target)
+        else:
+            self._state = STATE_OFF
+
+        attrs = self._attrs
+        attrs["status"] = dev.status
+        attrs["power_target"] = dev.power_target
+        attrs["load_nominal_power"] = dev.load_nominal_power or 0
+        attrs["temp_internal"] = await reg.tempchip
+
+        for sensor, temp in dev.temperatures.items():
+            attrs[f"temp_sensor_{sensor}"] = temp
