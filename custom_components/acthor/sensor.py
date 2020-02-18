@@ -1,4 +1,4 @@
-from homeassistant.const import DEVICE_CLASS_POWER, POWER_WATT, STATE_OFF, STATE_UNKNOWN
+from homeassistant.const import DEVICE_CLASS_POWER, POWER_WATT, STATE_UNKNOWN
 from homeassistant.helpers.typing import ConfigType, HomeAssistantType
 
 from . import ACThor, get_component
@@ -40,11 +40,7 @@ class ACThorSensor(ACThorEntity):
         dev = self._device
         reg = dev.registers
 
-        power_target = dev.power_target
-        if power_target:
-            self._state = str(power_target)
-        else:
-            self._state = STATE_OFF
+        self._state = str(dev.power_target)
 
         attrs = self._attrs
         attrs["status"] = dev.status
