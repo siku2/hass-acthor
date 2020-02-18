@@ -2,6 +2,8 @@
   "domain": "acthor",
   "name": "AC•THOR",
   "dependencies": [],
-  "codeowners": ["siku2"],
+  "codeowners": [
+    "siku2"
+  ],
   "requirements": []
 }
