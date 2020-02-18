@@ -3,5 +3,5 @@
   "name": "AC•THOR",
   "dependencies": [],
   "codeowners": ["siku2"],
-  "requirements": ["pymodbus~=2.3.0"]
+  "requirements": ["pymodbus==2.3.0"]
 }
