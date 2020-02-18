@@ -194,8 +194,18 @@ class ACThor:
         return self._power_override
 
     @property
+    def power_target(self) -> int:
+        return self._power_override or self._power_excess
+
+    @property
     def temperatures(self) -> Dict[int, float]:
         return self._temps
+
+    @property
+    def __power_target_write(self) -> int:
+        """This SHOULD be 'power_target' but for some reason ACTHOR only uses half the power it is given."""
+        # TODO find out why ACTHOR only uses half of excess power.
+        return int(1.8 * self.power_target)
 
     def start(self) -> None:
         assert not self._update_loop_running
@@ -218,7 +228,7 @@ class ACThor:
             self._temps[sensor] = temp
 
     async def __write_update(self) -> None:
-        power = self._power_override or self._power_excess
+        power = self.__power_target_write
         if power:
             self.registers.power = power
 
@@ -239,9 +249,9 @@ class ACThor:
             await asyncio.sleep(update_interval)
 
     async def _force_update_power(self) -> None:
-        power = self._power_override or self._power_excess
-        self.registers.power = power
+        self.registers.power = self.__power_target_write
 
+        power = self.power_target
         if self._load_nominal_power is None:
             actual_power = power
         else:
