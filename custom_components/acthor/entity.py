@@ -2,6 +2,7 @@ from typing import Optional
 
 from homeassistant.helpers.entity import Entity
 
+from . import get_device_info
 from .acthor import ACThor
 
 
@@ -24,3 +25,7 @@ class ACThorEntity(Entity):
     @property
     def unique_id(self) -> str:
         return self._unique_id
+
+    @property
+    def device_info(self) -> Optional[dict]:
+        return get_device_info(self.hass)

@@ -2,7 +2,7 @@ from homeassistant.const import DEVICE_CLASS_POWER, POWER_WATT, STATE_UNKNOWN
 from homeassistant.helpers.typing import ConfigType, HomeAssistantType
 
 from . import ACThor, get_component
-from .common import ACThorEntity
+from .entity import ACThorEntity
 
 
 async def async_setup_platform(hass: HomeAssistantType, config: ConfigType, add_entities, discovery_info=None) -> None:

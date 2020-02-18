@@ -6,7 +6,7 @@ from homeassistant.const import STATE_OFF, STATE_ON, TEMP_CELSIUS
 from homeassistant.helpers.typing import ConfigType, HomeAssistantType
 
 from . import ACThor, get_component
-from .common import ACThorEntity
+from .entity import ACThorEntity
 
 SUPPORT_FLAGS_HEATER = SUPPORT_OPERATION_MODE
 SUPPORT_WATER_HEATER = [STATE_ON, STATE_OFF]

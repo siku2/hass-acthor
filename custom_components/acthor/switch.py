@@ -7,7 +7,7 @@ from homeassistant.helpers.typing import ConfigType, HomeAssistantType
 
 from . import get_component
 from .acthor import ACThor
-from .common import ACThorEntity
+from .entity import ACThorEntity
 
 logger = logging.getLogger(__name__)
 

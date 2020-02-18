@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
@@ -9,12 +10,14 @@ from homeassistant.helpers.typing import ConfigType, HomeAssistantType, ServiceC
 
 from .acthor import ACThor
 
-__all__ = ["DOMAIN", "Component", "get_component"]
+__all__ = ["DOMAIN", "Component",
+           "get_component", "get_device_info"]
 
 logger = logging.getLogger(__name__)
 
 DOMAIN = "acthor"
-DATA_ACTHOR = "data_acthor"
+ACTHOR_DATA = "acthor-data"
+ACTHOR_DEVICE_INFO = "acthor-device"
 
 CONF_POWER_ENTITY_ID = "power_entity_id"
 
@@ -39,7 +42,7 @@ SERVICE_SET_POWER_SCHEMA = vol.Schema({
 
 async def async_setup(hass: HomeAssistantType, config: ConfigType) -> bool:
     acthor_config: ConfigType = config[DOMAIN]
-    component = hass.data[DATA_ACTHOR] = await Component.load(hass, acthor_config)
+    component = hass.data[ACTHOR_DATA] = await Component.load(hass, acthor_config)
 
     operation_mode = await component.device.operation_mode
 
@@ -57,14 +60,17 @@ async def async_setup_entry(hass: HomeAssistantType, entry: ConfigEntry) -> None
     dev = component.device
     reg = dev.registers
 
+    device_info = {
+        "config_entry_id": entry.entry_id,
+        "identifiers": {(DOMAIN, dev.serial_number)},
+        "manufacturer": "my-PV",
+        "name": component.device_name,
+        "sw_version": ".".join(await reg.get_control_firmware_version())
+    }
+
     device_registry = await dr.async_get_registry(hass)
-    device_registry.async_get_or_create(
-        config_entry_id=entry.entry_id,
-        identifiers={(DOMAIN, dev.serial_number)},
-        manufacturer="my-PV",
-        name=component.device_name,
-        sw_version=".".join(await reg.get_control_firmware_version()),
-    )
+    device_registry.async_get_or_create(**device_info)
+    hass.data[ACTHOR_DEVICE_INFO] = device_info
 
 
 class Component:
@@ -100,4 +106,8 @@ class Component:
 
 
 def get_component(hass: HomeAssistantType) -> Component:
-    return hass.data[DATA_ACTHOR]
+    return hass.data[ACTHOR_DATA]
+
+
+def get_device_info(hass: HomeAssistantType) -> Optional[dict]:
+    return hass.data.get(ACTHOR_DEVICE_INFO)
