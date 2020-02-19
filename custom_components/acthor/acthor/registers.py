@@ -74,6 +74,10 @@ class ReadWriteMulti(MultiRegister, ReadWriteMixin[int]):
 
 
 class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
+    """
+
+    Provides direct access to the registers with some additional helper methods for accessing multi-register values.
+    """
     __slots__ = ()
 
     power = ReadWrite(1000)
@@ -117,6 +121,8 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
     ww3_min = ReadWrite(1040, 10)
     """°C"""
 
+    _ww_range_2_3 = MultiRegister(1037, 4)
+
     status = ReadOnly(1003)
     """
     
@@ -138,6 +144,9 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
     """Hour"""
     boost_time2_stop = ReadWrite(1027)
     """Hour"""
+
+    _boost_time1_range = MultiRegister(1007, 2)
+    _boost_time2_range = MultiRegister(1026, 2)
 
     hour = ReadWrite(1009)
     minute = ReadWrite(1010)
@@ -193,6 +202,10 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
     rh3_night_min = ReadWrite(1049, 10)
     """°C"""
 
+    _rhs_max_range = MultiRegister(1041, 3)
+    _rhs_day_min_range = MultiRegister(1044, 3)
+    _rhs_night_min_range = MultiRegister(1047, 3)
+
     night_flag = ReadOnly(1050)
     """0: day, 1: night"""
 
@@ -212,9 +225,11 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
     legionella_mode = ReadWrite(1056)
     """0: off, 1: on"""
 
+    _legionella_range = MultiRegister(1053, 4)
+
     stratification_flag = ReadOnly(1057)
     """0: off, 1: on"""
-    relay_1_status = ReadOnly(1058)
+    relay1_status = ReadOnly(1058)
     """0: off, 1: on"""
     load_state = ReadOnly(1059)
     """0: off, 1: on"""
@@ -246,6 +261,10 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
     
     9s only, ACTHOR replies 0
     """
+
+    _l1_range = MultiRegister(1061, 2)
+    _l2_range = MultiRegister(1067, 2)
+    _l3_range = MultiRegister(1072, 2)
 
     u_out = ReadOnly(1063)
     """V"""
@@ -305,6 +324,9 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
     
     9s only, ACTHOR replies 0
     """
+
+    _p_out_range = MultiRegister(1074, 3)
+
     operation_state = ReadOnly(1077)
     """
     
@@ -350,6 +372,14 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
         return (first_temp, *other_temps)
 
     async def get_temp(self, sensor: int) -> float:
+        """Read the value of a temperature sensor.
+
+        Args:
+            sensor: Sensor number in [1..8].
+
+        Returns:
+            Temperature of the sensor.
+        """
         if not 1 <= sensor <= 8:
             raise ValueError("sensor must be in range(1, 9)")
 
@@ -367,5 +397,10 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
         )
 
     async def get_control_firmware_version(self) -> Tuple[int, int]:
+        """Read the full control firmware version.
+
+        Returns:
+            2-tuple (major, sub)..
+        """
         maj, sub = await asyncio.gather(self.control_firmware_version, self.control_firmware_subversion)
         return maj, sub
