@@ -1,0 +1,17 @@
+{
+  "config": {
+    "title": "AC•THOR",
+    "step": {
+      "user": {
+        "title": "Connect",
+        "data": {
+          "name": "Name",
+          "host": "Host"
+        }
+      }
+    },
+    "error": {
+      "connection_failed": "Connection failed"
+    }
+  }
+}

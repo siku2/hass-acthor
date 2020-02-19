@@ -9,9 +9,6 @@ from .pymodbus_vendor.client.asynchronous.asyncio import ModbusClientProtocol, R
     init_tcp_client
 from .registers import ACThorRegistersMixin
 
-__all__ = ["ACThorRegisters", "ACThor",
-           "OperationState"]
-
 logger = logging.getLogger(__name__)
 
 # The port cannot be changed in the AC THOR
@@ -29,6 +26,31 @@ def _add_made_connection_listener(client: ReconnectingAsyncioModbusTcpClient, li
     client.protocol_made_connection = wrapper
 
 
+async def test_connection(host: str, port: int = MODBUS_PORT, *, timeout: int = None) -> bool:
+    loop = asyncio.get_running_loop()
+    conn_lost = asyncio.Event()
+    protocol = asyncio.Protocol()
+    protocol.connection_lost = lambda e: conn_lost.set()
+
+    try:
+        coro = loop.create_connection(lambda: protocol, host, port)
+        transport, _ = await asyncio.wait_for(coro, timeout=timeout)
+    except Exception:
+        return False
+    else:
+        transport.close()
+        await conn_lost.wait()
+        return True
+
+
+async def modbus_connect(host: str, port: int = MODBUS_PORT, *,
+                         timeout: int = None) -> ReconnectingAsyncioModbusTcpClient:
+    coro = init_tcp_client(None, None, host, port)
+    client: ReconnectingAsyncioModbusTcpClient = await asyncio.wait_for(coro, timeout=timeout)
+
+    return client
+
+
 class ACThorRegisters(ACThorRegistersMixin):
     __slots__ = ("_client", "_lock",
                  "_made_connection")
@@ -43,9 +65,9 @@ class ACThorRegisters(ACThorRegistersMixin):
         self._made_connection = asyncio.Event()
 
     @classmethod
-    async def connect(cls, host: str = None):
+    async def connect(cls, host: str = None, *, timeout: int = None):
         logger.info("connecting to %r", host)
-        client = await init_tcp_client(None, None, host, MODBUS_PORT)
+        client = await modbus_connect(host, timeout=timeout)
         return cls(client)
 
     @property
@@ -86,6 +108,9 @@ class ACThorRegisters(ACThorRegistersMixin):
             protocol = await self._get_protocol()
             logger.debug("writing %r to registers starting at %r", values, address)
             await protocol.write_registers(address, values)
+
+    async def disconnect(self) -> None:
+        self._client.stop()
 
 
 class StatusCode(int):
@@ -164,7 +189,7 @@ class OperationMode(enum.IntEnum):
 
 class ACThor:
     def __init__(self, registers: ACThorRegistersMixin, serial_number: str, *,
-                 loop_interval: float = 20) -> None:
+                 loop_interval: float = 15) -> None:
         self.registers = registers
         self.serial_number = serial_number
 
@@ -180,8 +205,8 @@ class ACThor:
         self._temps: Dict[int, float] = {}
 
     @classmethod
-    async def connect(cls, host: str = None):
-        registers = await ACThorRegisters.connect(host)
+    async def connect(cls, host: str = None, *, timeout: int = None):
+        registers = await ACThorRegisters.connect(host, timeout=timeout)
         sn = await registers.serial_number
         return cls(registers, sn)
 

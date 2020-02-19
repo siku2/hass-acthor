@@ -3,7 +3,8 @@ import time
 from typing import Any, Optional
 
 from homeassistant.components.switch import SwitchDevice
-from homeassistant.helpers.typing import ConfigType, HomeAssistantType
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.helpers.typing import HomeAssistantType
 
 from . import get_component
 from .acthor import ACThor
@@ -14,18 +15,14 @@ logger = logging.getLogger(__name__)
 SECS_IN_HOUR = 60 * 60
 
 
-async def async_setup_platform(hass: HomeAssistantType, config: ConfigType, add_entities, discovery_info=None) -> None:
-    if discovery_info is None:
-        return
-
+async def async_setup_entry(hass: HomeAssistantType, config_entry: ConfigEntry, add_entities):
     component = get_component(hass)
-    entity = ACThorSwitch(component.device, name=component.device_name)
-    add_entities((entity,))
+    add_entities((ACThorSwitch(component.device, component.device_info),))
 
 
 class ACThorSwitch(ACThorEntity, SwitchDevice):
-    def __init__(self, device: ACThor, *, name: str = None) -> None:
-        super().__init__(device, name=name, sensor_type="switch")
+    def __init__(self, device: ACThor, device_info: dict) -> None:
+        super().__init__(device, device_info, sensor_type="Switch")
 
         self._last_update = time.time()
         self._today_energy = 0

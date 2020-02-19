@@ -1,6 +1,7 @@
 {
   "domain": "acthor",
   "name": "AC•THOR",
+  "config_flow": true,
   "dependencies": [],
   "codeowners": [
     "siku2"

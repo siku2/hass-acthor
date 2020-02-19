@@ -1,35 +1,21 @@
 import logging
-from typing import Optional
 
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_HOST, CONF_NAME
+from homeassistant.const import CONF_HOST
 from homeassistant.helpers import config_validation as cv, device_registry as dr
-from homeassistant.helpers.discovery import async_load_platform
 from homeassistant.helpers.typing import ConfigType, HomeAssistantType, ServiceCallType
 
 from .acthor import ACThor
+from .config_flow import ACThorConfigFlow
+from .const import ACTHOR_DATA, ATTR_OVERRIDE, ATTR_POWER, DEVICE_NAME, DOMAIN
 
-__all__ = ["DOMAIN", "Component",
-           "get_component", "get_device_info"]
+__all__ = ["Component",
+           "get_component"]
+
+_ = ACThorConfigFlow
 
 logger = logging.getLogger(__name__)
-
-DOMAIN = "acthor"
-ACTHOR_DATA = "acthor-data"
-ACTHOR_DEVICE_INFO = "acthor-device"
-
-CONF_POWER_ENTITY_ID = "power_entity_id"
-
-CONFIG_SCHEMA = vol.Schema({
-    DOMAIN: vol.Schema({
-        vol.Required(CONF_HOST): cv.string,
-        vol.Optional(CONF_NAME, default="AC•THOR"): cv.string,
-    }),
-}, extra=vol.ALLOW_EXTRA)
-
-ATTR_POWER = "power"
-ATTR_OVERRIDE = "override"
 
 SERVICE_ACTIVATE_BOOST = "activate_boost"
 SERVICE_ACTIVATE_BOOST_SCHEMA = vol.Schema({})
@@ -41,57 +27,71 @@ SERVICE_SET_POWER_SCHEMA = vol.Schema({
 
 
 async def async_setup(hass: HomeAssistantType, config: ConfigType) -> bool:
-    acthor_config: ConfigType = config[DOMAIN]
-    component = hass.data[ACTHOR_DATA] = await Component.load(hass, acthor_config)
-
-    operation_mode = await component.device.operation_mode
-
-    for platform in ("sensor", "switch"):
-        await async_load_platform(hass, platform, DOMAIN, True, config)
-
-    if operation_mode.has_ww:
-        await async_load_platform(hass, "water_heater", DOMAIN, True, config)
-
     return True
 
 
-async def async_setup_entry(hass: HomeAssistantType, entry: ConfigEntry) -> None:
-    component = get_component(hass)
-    dev = component.device
-    reg = dev.registers
+_LOADED_ENTRIES = []
+
+
+async def async_setup_entry(hass: HomeAssistantType, entry: ConfigEntry) -> bool:
+    data = entry.data
+
+    device: ACThor = await ACThor.connect(data[CONF_HOST])
+    device.start()
+
+    sw_version = await device.registers.get_control_firmware_version()
 
     device_info = {
         "config_entry_id": entry.entry_id,
-        "identifiers": {(DOMAIN, dev.serial_number)},
+        "identifiers": {(DOMAIN, device.serial_number)},
         "manufacturer": "my-PV",
-        "name": component.device_name,
-        "sw_version": ".".join(await reg.get_control_firmware_version())
+        "name": data["name"],
+        "sw_version": ".".join(map(str, sw_version))
     }
+
+    hass.data[ACTHOR_DATA] = Component(hass, device, device_info)
+
+    for domain in ("sensor", "switch"):
+        hass.async_create_task(hass.config_entries.async_forward_entry_setup(entry, domain))
+        _LOADED_ENTRIES.append(domain)
+
+    operation_mode = await device.operation_mode
+    if operation_mode.has_ww:
+        hass.async_create_task(hass.config_entries.async_forward_entry_setup(entry, "water_heater"))
+        _LOADED_ENTRIES.append("water_heater")
 
     device_registry = await dr.async_get_registry(hass)
     device_registry.async_get_or_create(**device_info)
-    hass.data[ACTHOR_DEVICE_INFO] = device_info
+    return True
+
+
+async def async_unload_entry(hass: HomeAssistantType, config_entry: ConfigEntry) -> bool:
+    for domain in _LOADED_ENTRIES:
+        await hass.config_entries.async_forward_entry_unload(config_entry, domain)
+    _LOADED_ENTRIES.clear()
+
+    await get_component(hass).shutdown()
+    return True
 
 
 class Component:
-    def __init__(self, hass: HomeAssistantType, device: ACThor, *,
-                 device_name: str) -> None:
+    def __init__(self, hass: HomeAssistantType, device: ACThor, device_info: dict) -> None:
         self.hass = hass
         self.device = device
-        self.device_name = device_name
+        self.device_info = device_info
 
         hass.services.async_register(DOMAIN, SERVICE_ACTIVATE_BOOST, self.__handle_activate_boost,
                                      SERVICE_ACTIVATE_BOOST_SCHEMA)
         hass.services.async_register(DOMAIN, SERVICE_SET_POWER, self.__handle_set_power,
                                      SERVICE_SET_POWER_SCHEMA)
 
-    @classmethod
-    async def load(cls, hass: HomeAssistantType, config: ConfigType):
-        device = await ACThor.connect(config[CONF_HOST])
-        device.start()
+    @property
+    def device_name(self) -> str:
+        return self.device_info["name"]
 
-        return cls(hass, device,
-                   device_name=config[CONF_NAME])
+    async def shutdown(self) -> None:
+        self.device.stop()
+        await self.device.registers.disconnect()
 
     async def __handle_activate_boost(self, call: ServiceCallType) -> None:
         await self.device.trigger_boost()
@@ -107,7 +107,3 @@ class Component:
 
 def get_component(hass: HomeAssistantType) -> Component:
     return hass.data[ACTHOR_DATA]
-
-
-def get_device_info(hass: HomeAssistantType) -> Optional[dict]:
-    return hass.data.get(ACTHOR_DEVICE_INFO)

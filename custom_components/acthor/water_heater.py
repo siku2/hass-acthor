@@ -2,8 +2,9 @@ import asyncio
 from typing import Optional
 
 from homeassistant.components.water_heater import SUPPORT_OPERATION_MODE, WaterHeaterDevice
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_OFF, STATE_ON, TEMP_CELSIUS
-from homeassistant.helpers.typing import ConfigType, HomeAssistantType
+from homeassistant.helpers.typing import HomeAssistantType
 
 from . import ACThor, get_component
 from .entity import ACThorEntity
@@ -12,20 +13,15 @@ SUPPORT_FLAGS_HEATER = SUPPORT_OPERATION_MODE
 SUPPORT_WATER_HEATER = [STATE_ON, STATE_OFF]
 
 
-async def async_setup_platform(hass: HomeAssistantType, config: ConfigType, add_entities, discovery_info=None) -> None:
-    if discovery_info is None:
-        return
-
+async def async_setup_entry(hass: HomeAssistantType, config_entry: ConfigEntry, add_entities):
     component = get_component(hass)
-    entity = ACThorWaterHeater(component.device, name=component.device_name, temp_sensor=1)
-    add_entities((entity,))
+    add_entities((ACThorWaterHeater(component.device, component.device_info, temp_sensor=1),))
 
 
 class ACThorWaterHeater(ACThorEntity, WaterHeaterDevice):
-    def __init__(self, device: ACThor, *,
-                 temp_sensor: int,
-                 name: str = None) -> None:
-        super().__init__(device, name=name, sensor_type="water_heater")
+    def __init__(self, device: ACThor, device_info: dict, *,
+                 temp_sensor: int) -> None:
+        super().__init__(device, device_info, sensor_type="Water Heater")
 
         self._min_temp = None
         self._max_temp = None

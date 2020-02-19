@@ -2,17 +2,18 @@ from typing import Optional
 
 from homeassistant.helpers.entity import Entity
 
-from . import get_device_info
 from .acthor import ACThor
 
 
 class ACThorEntity(Entity):
-    def __init__(self, device: ACThor, *, sensor_type: str, name: str = None) -> None:
+    def __init__(self, device: ACThor, device_info: dict, *, sensor_type: str) -> None:
         super().__init__()
         self._device = device
-        self._sensor_type = sensor_type
-        self._unique_id = f"{self._device.serial_number}-{sensor_type}"
-        self.__name = name
+        self._device_info = device_info
+
+        self.__unique_id = f"{self._device.serial_number}-{sensor_type}"
+        device_name = self._device_info["name"]
+        self.__name = f"{device_name} {sensor_type}"
 
     @property
     def available(self) -> bool:
@@ -24,8 +25,8 @@ class ACThorEntity(Entity):
 
     @property
     def unique_id(self) -> str:
-        return self._unique_id
+        return self.__unique_id
 
     @property
     def device_info(self) -> Optional[dict]:
-        return get_device_info(self.hass)
+        return self._device_info
