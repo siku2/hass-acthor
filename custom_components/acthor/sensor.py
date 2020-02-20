@@ -37,7 +37,7 @@ class ACThorSensor(ACThorEntity):
         dev = self._device
         reg = dev.registers
 
-        self._state = str(dev.power_target)
+        self._state = str(dev.power)
 
         attrs = self._attrs
         attrs["status"] = dev.status
