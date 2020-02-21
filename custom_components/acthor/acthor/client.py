@@ -4,6 +4,7 @@ import functools
 import logging
 from typing import Callable, Dict, Iterable, Optional, Tuple, Union
 
+from .event_target import EventTarget
 # FIXME switch back to pymodbus once HomeAssistant uses a compatible version
 from .pymodbus_vendor.client.asynchronous.asyncio import ModbusClientProtocol, ReconnectingAsyncioModbusTcpClient, \
     init_tcp_client
@@ -187,9 +188,10 @@ class OperationMode(enum.IntEnum):
         return self in (self.HEATING, self.WW_AND_HEATING)
 
 
-class ACThor:
+class ACThor(EventTarget):
     def __init__(self, registers: ACThorRegistersMixin, serial_number: str, *,
                  loop_interval: float = 15) -> None:
+        super().__init__()
         self.registers = registers
         self.serial_number = serial_number
 
@@ -297,6 +299,8 @@ class ACThor:
                 raise
             except Exception:
                 logger.exception("error while updating")
+            else:
+                await self.dispatch_event("after_update")
 
             await asyncio.sleep(update_interval)
 

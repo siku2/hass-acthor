@@ -61,7 +61,7 @@ class ACThorWaterHeater(ACThorEntity, WaterHeaterDevice):
         # TODO
         raise NotImplementedError
 
-    async def async_update(self) -> None:
+    async def on_device_update(self) -> None:
         dev = self._device
         reg = dev.registers
 

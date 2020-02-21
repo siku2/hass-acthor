@@ -33,14 +33,15 @@ class ACThorSensor(ACThorEntity):
     def device_class(self) -> str:
         return DEVICE_CLASS_POWER
 
-    async def async_update(self) -> None:
+    async def on_device_update(self) -> None:
         dev = self._device
         reg = dev.registers
 
         self._state = str(dev.power)
 
         attrs = self._attrs
-        attrs["status"] = dev.status
+        attrs["status"] = dev.status.name
+        attrs["status_code"] = dev.status
         attrs["power_target"] = dev.power_target
         attrs["load_nominal_power"] = dev.load_nominal_power or 0
         attrs["temp_internal"] = await reg.tempchip

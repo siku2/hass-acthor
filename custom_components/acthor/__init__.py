@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 SERVICE_ACTIVATE_BOOST = "activate_boost"
 SERVICE_ACTIVATE_BOOST_SCHEMA = vol.Schema({})
+
 SERVICE_SET_POWER = "set_power"
 SERVICE_SET_POWER_SCHEMA = vol.Schema({
     vol.Required(ATTR_POWER): cv.positive_int,

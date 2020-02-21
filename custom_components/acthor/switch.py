@@ -1,3 +1,4 @@
+import datetime
 import logging
 import time
 from typing import Any, Optional
@@ -25,8 +26,8 @@ class ACThorSwitch(ACThorEntity, SwitchDevice):
         super().__init__(device, device_info, sensor_type="Switch")
 
         self._last_update = time.time()
+        self._next_energy_reset = 0
         self._today_energy = 0
-        # TODO reset after 1 day
 
     @property
     def is_on(self) -> bool:
@@ -50,10 +51,19 @@ class ACThorSwitch(ACThorEntity, SwitchDevice):
     async def async_turn_off(self, **kwargs: Any) -> None:
         await self._device.set_power_override(False)
 
+    def _reset_today_energy(self) -> None:
+        self._today_energy = 0
+        tomorrow = datetime.datetime.now(self.hass.config.time_zone) + datetime.timedelta(days=1)
+        midnight = datetime.datetime.combine(tomorrow.date(), datetime.time(0, 0))
+        self._next_energy_reset = midnight.timestamp()
+
     def _update_today_energy(self) -> None:
         now = time.time()
         diff = now - self._last_update
         self._last_update = now
+
+        if now > self._next_energy_reset:
+            self._reset_today_energy()
 
         power = self._device.power
         if not power:
@@ -61,5 +71,5 @@ class ACThorSwitch(ACThorEntity, SwitchDevice):
         watt_hours = power * diff / SECS_IN_HOUR
         self._today_energy += watt_hours / 1000
 
-    async def async_update(self) -> None:
+    async def on_device_update(self) -> None:
         self._update_today_energy()
