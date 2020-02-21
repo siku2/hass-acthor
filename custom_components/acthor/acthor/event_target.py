@@ -59,5 +59,5 @@ class EventTarget:
         coro_gen = (self.__dispatch_event_listener(listener, args, kwargs, event_name=name) for listener in listeners)
         await asyncio.gather(*coro_gen)
 
-    def dispatch_event(self, name: str, *args, **kwargs) -> asyncio.Future:
+    def dispatch_event(self, name: str, *args, **kwargs) -> asyncio.Task:
         return asyncio.create_task(self.__dispatch_event(name, args, kwargs))

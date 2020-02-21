@@ -33,6 +33,12 @@ class ACThorSensor(ACThorEntity):
     def device_class(self) -> str:
         return DEVICE_CLASS_POWER
 
+    async def _handle_write_power(self, power: int) -> None:
+        self._state = str(power)
+        self._attrs["power_target"] = self._device.power_target
+
+        self.async_schedule_update_ha_state()
+
     async def on_device_update(self) -> None:
         dev = self._device
         reg = dev.registers

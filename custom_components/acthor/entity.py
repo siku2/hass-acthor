@@ -42,8 +42,10 @@ class ACThorEntity(Entity, abc.ABC):
         return False
 
     async def async_added_to_hass(self) -> None:
-        unsub = self._device.add_listener("after_update", self.__handle_device_update)
-        self._unsubscribe_calls.append(unsub)
+        self._unsubscribe_calls.extend((
+            self._device.add_listener("after_update", self.__handle_device_update),
+            self._device.add_listener("after_write_power", self._handle_write_power),
+        ))
 
     async def async_will_remove_from_hass(self) -> None:
         for unsub in self._unsubscribe_calls:
@@ -62,3 +64,7 @@ class ACThorEntity(Entity, abc.ABC):
     @abc.abstractmethod
     async def on_device_update(self) -> None:
         ...
+
+    @abc.abstractmethod
+    async def _handle_write_power(self, power: int) -> None:
+        pass

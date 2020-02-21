@@ -39,7 +39,7 @@ class ACThorSwitch(ACThorEntity, SwitchDevice):
 
     @property
     def today_energy_kwh(self) -> float:
-        return round(self._today_energy, 1)
+        return round(self._today_energy, 3)
 
     @property
     def is_standby(self) -> bool:
@@ -73,3 +73,8 @@ class ACThorSwitch(ACThorEntity, SwitchDevice):
 
     async def on_device_update(self) -> None:
         self._update_today_energy()
+
+    async def _handle_write_power(self, power: int) -> None:
+        self._update_today_energy()
+
+        self.async_schedule_update_ha_state()

@@ -314,6 +314,7 @@ class ACThor(EventTarget):
             actual_power = min(power, self._load_nominal_power)
 
         self._power = actual_power
+        _ = self.dispatch_event("after_write_power", actual_power)
 
     async def set_power_excess(self, watts: int) -> None:
         """Set the current power excess.
