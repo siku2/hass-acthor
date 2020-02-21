@@ -2,16 +2,26 @@
 
 Home Assistant integration for my-PV's AC•THOR.
 
+
 ## Disclaimer
+
 AC•THOR only supports one active connection.
 It's impossible to even connect while another connection is active. 
 
 If you want to control it through another device you need to add them both to Home Assistant and use an automation to call the `acthor.set_power` service.
 
 
+## Installation
+
+1. Go to the HACS Settings and add the custom repository `siku2/hass-acthor` with category "Integration".
+2. Open the "Integrations" tab and search for "AC•THOR".
+3. Follow the instructions there to set the integration up.
+
+
 ## Entities
 
 The integration adds multiple entities because the AC•THOR doesn't really fit any platform.
+
 
 ### Sensor
 
@@ -42,6 +52,7 @@ For the water heater entity to be added the device must be in one of the warm wa
 ## Services
 
 For now, please refer to the [services.yaml](custom_components/acthor/services.yaml) file for information about the available services.
+
 
 ## Limitations
 
