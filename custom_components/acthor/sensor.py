@@ -48,7 +48,7 @@ class ACThorSensor(ACThorEntity):
         attrs = self._attrs
         attrs["status"] = dev.status.name
         attrs["status_code"] = dev.status
-        attrs["override_mode"] = dev.override_mode
+        attrs["override_mode"] = dev.override_mode.value
         attrs["power_target"] = dev.power_target
         attrs["load_nominal_power"] = dev.load_nominal_power or 0
         attrs["temp_internal"] = await reg.tempchip
