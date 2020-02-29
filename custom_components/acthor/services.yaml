@@ -11,3 +11,16 @@ ser_power:
     override:
       description: Whether to set the override power. Defaults to false.
       example: true
+
+    mode:
+      description: >-
+        Override mode, only applicable if `override` is `true`.
+        If not specified, the previous override mode is kept.
+
+        Valid values are:
+
+          - override: Treat the value as absolute (Default setting).
+          - minimum: Set the value as the minimal required power.
+              Will use the normal power if it happens to be bigger.
+
+      example: minimum

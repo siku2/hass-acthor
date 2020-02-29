@@ -188,6 +188,11 @@ class OperationMode(enum.IntEnum):
         return self in (self.HEATING, self.WW_AND_HEATING)
 
 
+class OverrideMode(enum.Enum):
+    OVERRIDE = "override"
+    MINIMUM = "minimum"
+
+
 class ACThor(EventTarget):
     def __init__(self, registers: ACThorRegistersMixin, serial_number: str, *,
                  loop_interval: float = 15) -> None:
@@ -200,6 +205,7 @@ class ACThor(EventTarget):
 
         self._power_excess = 0
         self._power_override = 0
+        self._override_mode = OverrideMode.OVERRIDE
 
         self._status: Optional[StatusCode] = None
         self._load_nominal_power: Optional[int] = None
@@ -248,8 +254,20 @@ class ACThor(EventTarget):
         return self._power_override
 
     @property
+    def override_mode(self) -> OverrideMode:
+        return self._override_mode
+
+    @property
     def power_target(self) -> int:
-        return self._power_override or self._power_excess
+        power_override = self._power_override
+        if not power_override:
+            return self._power_excess
+
+        if self._override_mode == OverrideMode.MINIMUM:
+            return max(power_override, self._power_excess)
+
+        # default is OVERRIDE
+        return power_override or self._power_excess
 
     @property
     def temperatures(self) -> Dict[int, float]:
@@ -331,7 +349,7 @@ class ACThor(EventTarget):
         self._power_excess = watts
         await self._force_update_power()
 
-    async def set_power_override(self, watts: Union[bool, int]) -> None:
+    async def set_power_override(self, watts: Union[bool, int], mode: Union[OverrideMode, str] = None) -> None:
         """Set the power override.
 
         This overrides the `power_excess` unless it is 0.
@@ -341,12 +359,16 @@ class ACThor(EventTarget):
             watts: Amount of power in watts.
                 `True` is short for granting the 'load nominal power'.
                 `False` is 0.
+            mode: Override mode. If `None`, the current value is kept.
         """
         if watts is True:
             nominal_power = await self.registers.load_nominal_power
             watts = nominal_power if nominal_power else 1000
         elif watts is False:
             watts = 0
+
+        if mode is not None:
+            self._override_mode = OverrideMode(mode)
 
         self._power_override = watts
         await self._force_update_power()

@@ -17,7 +17,7 @@ class ACThorConfigFlow(ConfigFlow, domain=DOMAIN):
                     data=user_input,
                 )
             else:
-                errors[CONF_NAME] = "connection_failed"
+                errors["base"] = "connection_failed"
 
         return self.async_show_form(
             step_id="user",

@@ -2,11 +2,11 @@ import logging
 
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_HOST
+from homeassistant.const import ATTR_MODE, CONF_HOST
 from homeassistant.helpers import config_validation as cv, device_registry as dr
 from homeassistant.helpers.typing import ConfigType, HomeAssistantType, ServiceCallType
 
-from .acthor import ACThor
+from .acthor import ACThor, OverrideMode
 from .config_flow import ACThorConfigFlow
 from .const import ACTHOR_DATA, ATTR_OVERRIDE, ATTR_POWER, DEVICE_NAME, DOMAIN
 
@@ -24,6 +24,7 @@ SERVICE_SET_POWER = "set_power"
 SERVICE_SET_POWER_SCHEMA = vol.Schema({
     vol.Required(ATTR_POWER): cv.positive_int,
     vol.Optional(ATTR_OVERRIDE, default=False): cv.boolean,
+    vol.Optional(ATTR_MODE, default=None): cv.enum(OverrideMode),
 })
 
 
@@ -101,10 +102,11 @@ class Component:
         data = call.data
         power = int(data[ATTR_POWER])
         if data[ATTR_OVERRIDE]:
-            await self.device.set_power_override(power)
+            await self.device.set_power_override(power, mode=data.get(ATTR_MODE))
         else:
             await self.device.set_power_excess(power)
 
 
 def get_component(hass: HomeAssistantType) -> Component:
+    # TODO use component on a per-device level.
     return hass.data[ACTHOR_DATA]

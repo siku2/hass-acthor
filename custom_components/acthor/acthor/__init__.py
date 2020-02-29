@@ -1,1 +1,1 @@
-from .client import ACThor, ACThorRegisters, test_connection
+from .client import ACThor, ACThorRegisters, OverrideMode, test_connection
