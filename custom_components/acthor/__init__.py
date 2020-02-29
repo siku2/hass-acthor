@@ -24,7 +24,7 @@ SERVICE_SET_POWER = "set_power"
 SERVICE_SET_POWER_SCHEMA = vol.Schema({
     vol.Required(ATTR_POWER): cv.positive_int,
     vol.Optional(ATTR_OVERRIDE, default=False): cv.boolean,
-    vol.Optional(ATTR_MODE, default=None): cv.enum(OverrideMode),
+    vol.Optional(ATTR_MODE, default=None): OverrideMode,
 })
 
 
