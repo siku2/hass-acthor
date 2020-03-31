@@ -1,4 +1,5 @@
 import logging
+from typing import Dict
 
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
@@ -51,7 +52,10 @@ async def async_setup_entry(hass: HomeAssistantType, entry: ConfigEntry) -> bool
         "sw_version": ".".join(map(str, sw_version))
     }
 
-    hass.data[ACTHOR_DATA] = Component(hass, device, device_info)
+    device_registry = await dr.async_get_registry(hass)
+    device_registry.async_get_or_create(**device_info)
+
+    get_components(hass)[entry.entry_id] = Component(hass, device, device_info)
 
     for domain in ("sensor", "switch"):
         hass.async_create_task(hass.config_entries.async_forward_entry_setup(entry, domain))
@@ -62,8 +66,6 @@ async def async_setup_entry(hass: HomeAssistantType, entry: ConfigEntry) -> bool
         hass.async_create_task(hass.config_entries.async_forward_entry_setup(entry, "water_heater"))
         _LOADED_ENTRIES.append("water_heater")
 
-    device_registry = await dr.async_get_registry(hass)
-    device_registry.async_get_or_create(**device_info)
     return True
 
 
@@ -72,7 +74,9 @@ async def async_unload_entry(hass: HomeAssistantType, config_entry: ConfigEntry)
         await hass.config_entries.async_forward_entry_unload(config_entry, domain)
     _LOADED_ENTRIES.clear()
 
-    await get_component(hass).shutdown()
+    component = get_components(hass).pop(config_entry.entry_id)
+    await component.shutdown()
+
     return True
 
 
@@ -107,6 +111,13 @@ class Component:
             await self.device.set_power_excess(power)
 
 
-def get_component(hass: HomeAssistantType) -> Component:
-    # TODO use component on a per-device level.
-    return hass.data[ACTHOR_DATA]
+def get_components(hass: HomeAssistantType) -> Dict[str, Component]:
+    try:
+        ret = hass.data[ACTHOR_DATA]
+    except KeyError:
+        ret = hass.data[ACTHOR_DATA] = {}
+    return ret
+
+
+def get_component(hass: HomeAssistantType, entry_id: str) -> Component:
+    return get_components(hass)[entry_id]

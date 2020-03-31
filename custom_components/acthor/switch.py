@@ -17,7 +17,7 @@ SECS_IN_HOUR = 60 * 60
 
 
 async def async_setup_entry(hass: HomeAssistantType, config_entry: ConfigEntry, add_entities):
-    component = get_component(hass)
+    component = get_component(hass, config_entry.entry_id)
     add_entities((ACThorSwitch(component.device, component.device_info),))
 
 

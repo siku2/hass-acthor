@@ -6,10 +6,14 @@ Home Assistant integration for my-PV's AC•THOR.
 ## Disclaimer
 
 AC•THOR only supports one active connection.
-It's impossible to even connect while another connection is active. 
+It's impossible to connect to the device while another connection is active. 
 
 If you want to control it through another device you need to add them both to Home Assistant and use an automation to call the `acthor.set_power` service.
 
+Please be aware that I can't guarantee that this will work well for your use case.
+I'm trying to make it work for all possible use cases but because of the poor documentation on AC•THOR's side some features might not work as expected.
+
+Don't hesitate to open an issue if something seems off.
 
 ## Installation
 

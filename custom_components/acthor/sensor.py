@@ -7,7 +7,7 @@ from .entity import ACThorEntity
 
 
 async def async_setup_entry(hass: HomeAssistantType, config_entry: ConfigEntry, add_entities):
-    component = get_component(hass)
+    component = get_component(hass, config_entry.entry_id)
     add_entities((ACThorSensor(component.device, component.device_info),))
 
 

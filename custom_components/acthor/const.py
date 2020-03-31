@@ -1,7 +1,7 @@
 DEVICE_NAME = "AC•THOR"
 
 DOMAIN = "acthor"
-ACTHOR_DATA = "acthor-data"
+ACTHOR_DATA = f"{DOMAIN}-data"
 
 CONF_POWER_ENTITY_ID = "power_entity_id"
 

@@ -306,6 +306,7 @@ class ACThor(EventTarget):
 
     async def __update_loop(self) -> None:
         update_interval = self.__update_interval
+        # TODO this breaks if the device restarts. Needs to be sent when the connection is established.
         self.registers.power_timeout = 1.5 * update_interval
 
         while True:

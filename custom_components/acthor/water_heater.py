@@ -14,7 +14,7 @@ SUPPORT_WATER_HEATER = [STATE_ON, STATE_OFF]
 
 
 async def async_setup_entry(hass: HomeAssistantType, config_entry: ConfigEntry, add_entities):
-    component = get_component(hass)
+    component = get_component(hass, config_entry.entry_id)
     add_entities((ACThorWaterHeater(component.device, component.device_info, temp_sensor=1),))
 
 
