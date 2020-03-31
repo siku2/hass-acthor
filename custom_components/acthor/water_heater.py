@@ -1,7 +1,7 @@
 import asyncio
 from typing import Optional
 
-from homeassistant.components.water_heater import SUPPORT_OPERATION_MODE, WaterHeaterDevice
+from homeassistant.components.water_heater import ATTR_TARGET_TEMP_HIGH, ATTR_TARGET_TEMP_LOW, WaterHeaterDevice
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_OFF, STATE_ON, TEMP_CELSIUS
 from homeassistant.helpers.typing import HomeAssistantType
@@ -9,8 +9,7 @@ from homeassistant.helpers.typing import HomeAssistantType
 from . import ACThor, get_component
 from .entity import ACThorEntity
 
-SUPPORT_FLAGS_HEATER = SUPPORT_OPERATION_MODE
-SUPPORT_WATER_HEATER = [STATE_ON, STATE_OFF]
+SUPPORT_FLAGS_HEATER = 0
 
 
 async def async_setup_entry(hass: HomeAssistantType, config_entry: ConfigEntry, add_entities):
@@ -46,10 +45,6 @@ class ACThorWaterHeater(ACThorEntity, WaterHeaterDevice):
         return STATE_ON if self._on else STATE_OFF
 
     @property
-    def operation_list(self):
-        return SUPPORT_WATER_HEATER
-
-    @property
     def temperature_unit(self) -> str:
         return TEMP_CELSIUS
 
@@ -57,8 +52,24 @@ class ACThorWaterHeater(ACThorEntity, WaterHeaterDevice):
     def supported_features(self) -> int:
         return SUPPORT_FLAGS_HEATER
 
+    async def async_set_temperature(self, **kwargs) -> None:
+        reg = self._device.registers
+
+        try:
+            low = kwargs[ATTR_TARGET_TEMP_LOW]
+        except KeyError:
+            pass
+        else:
+            reg.ww1_min = float(low)
+
+        try:
+            high = kwargs[ATTR_TARGET_TEMP_HIGH]
+        except KeyError:
+            pass
+        else:
+            reg.ww1_max = float(high)
+
     async def async_set_operation_mode(self, operation_mode: str) -> None:
-        # TODO
         raise NotImplementedError
 
     async def on_device_update(self) -> None:
@@ -67,4 +78,7 @@ class ACThorWaterHeater(ACThorEntity, WaterHeaterDevice):
 
         self._min_temp, self._max_temp = await asyncio.gather(reg.ww1_min, reg.ww1_max)
         self._temp = dev.temperatures[self._temp_sensor]
-        self._on = (await reg.power) > 0
+        self._on = dev.power > 0
+
+    async def _handle_write_power(self, power: int) -> None:
+        pass
