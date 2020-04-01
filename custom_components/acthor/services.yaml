@@ -1,9 +1,17 @@
 activate_boost:
   description: Activate the boost mode
+  fields:
+    device:
+      description: Serial number of the device to target. Can be omitted if you're only using one device.
+      example: 2001000912110212
 
-ser_power:
+set_power:
   description: Set the amount of power to be used by the device
   fields:
+    device:
+      description: Serial number of the device to target. Can be omitted if you're only using one device.
+      example: 2001000912110212
+
     power:
       description: Excess power in watts
       example: 500

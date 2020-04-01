@@ -1,5 +1,5 @@
 import logging
-from typing import Dict
+from typing import Dict, Optional
 
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
@@ -18,11 +18,17 @@ _ = ACThorConfigFlow
 
 logger = logging.getLogger(__name__)
 
+ATTR_DEVICE = "device"
+
+SERVICE_BASE_SCHEMA = vol.Schema({
+    vol.Optional(ATTR_DEVICE): cv.string,
+})
+
 SERVICE_ACTIVATE_BOOST = "activate_boost"
-SERVICE_ACTIVATE_BOOST_SCHEMA = vol.Schema({})
+SERVICE_ACTIVATE_BOOST_SCHEMA = SERVICE_BASE_SCHEMA.extend({})
 
 SERVICE_SET_POWER = "set_power"
-SERVICE_SET_POWER_SCHEMA = vol.Schema({
+SERVICE_SET_POWER_SCHEMA = SERVICE_BASE_SCHEMA.extend({
     vol.Required(ATTR_POWER): cv.positive_int,
     vol.Optional(ATTR_OVERRIDE, default=False): cv.boolean,
     vol.Optional(ATTR_MODE): OverrideMode.__call__,
@@ -30,6 +36,18 @@ SERVICE_SET_POWER_SCHEMA = vol.Schema({
 
 
 async def async_setup(hass: HomeAssistantType, config: ConfigType) -> bool:
+    async def handle_activate_boost(call: ServiceCallType) -> None:
+        component = _get_component_by_sn(hass, call.data.get(ATTR_DEVICE))
+        await component.handle_activate_boost(call)
+
+    hass.services.async_register(DOMAIN, SERVICE_ACTIVATE_BOOST, handle_activate_boost, SERVICE_ACTIVATE_BOOST_SCHEMA)
+
+    async def handle_set_power(call: ServiceCallType) -> None:
+        component = _get_component_by_sn(hass, call.data.get(ATTR_DEVICE))
+        await component.handle_set_power(call)
+
+    hass.services.async_register(DOMAIN, SERVICE_SET_POWER, handle_set_power, SERVICE_SET_POWER_SCHEMA)
+
     return True
 
 
@@ -86,11 +104,6 @@ class Component:
         self.device = device
         self.device_info = device_info
 
-        hass.services.async_register(DOMAIN, SERVICE_ACTIVATE_BOOST, self.__handle_activate_boost,
-                                     SERVICE_ACTIVATE_BOOST_SCHEMA)
-        hass.services.async_register(DOMAIN, SERVICE_SET_POWER, self.__handle_set_power,
-                                     SERVICE_SET_POWER_SCHEMA)
-
     @property
     def device_name(self) -> str:
         return self.device_info["name"]
@@ -99,10 +112,10 @@ class Component:
         self.device.stop()
         await self.device.registers.disconnect()
 
-    async def __handle_activate_boost(self, call: ServiceCallType) -> None:
+    async def handle_activate_boost(self, call: ServiceCallType) -> None:
         await self.device.trigger_boost()
 
-    async def __handle_set_power(self, call: ServiceCallType) -> None:
+    async def handle_set_power(self, call: ServiceCallType) -> None:
         data = call.data
         power = int(data[ATTR_POWER])
         if data[ATTR_OVERRIDE]:
@@ -121,3 +134,19 @@ def get_components(hass: HomeAssistantType) -> Dict[str, Component]:
 
 def get_component(hass: HomeAssistantType, entry_id: str) -> Component:
     return get_components(hass)[entry_id]
+
+
+def _get_component_by_sn(hass: HomeAssistantType, sn: Optional[str]) -> Component:
+    comps = get_components(hass)
+    if sn is None:
+        if len(comps) != 1:
+            raise ValueError("device serial number must be specified when there isn't exactly one device")
+
+        return next(iter(comps.values()))
+
+    sn = str(sn)
+    for c in comps.values():
+        if c.device.serial_number == sn:
+            return c
+
+    raise ValueError("no device with serial number found")

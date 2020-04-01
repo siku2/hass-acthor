@@ -15,7 +15,9 @@ class ACThorSensor(ACThorEntity):
     def __init__(self, device: ACThor, device_info: dict) -> None:
         super().__init__(device, device_info, sensor_type="Sensor")
         self._state = STATE_UNKNOWN
-        self._attrs = {}
+        self._attrs = {
+            "serial_number": device.serial_number,
+        }
 
     @property
     def device_state_attributes(self) -> dict:
