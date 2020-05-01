@@ -1,3 +1,4 @@
+import abc
 import asyncio
 import enum
 import functools
@@ -52,11 +53,17 @@ async def modbus_connect(host: str, port: int = MODBUS_PORT, *,
     return client
 
 
-class ACThorRegisters(ACThorRegistersMixin):
+class ACThorRegistersMixinWithEvents(EventTarget, ACThorRegistersMixin, abc.ABC):
+    __slots__ = ()
+
+
+class ACThorRegisters(ACThorRegistersMixinWithEvents):
     __slots__ = ("_client", "_lock",
                  "_made_connection")
 
     def __init__(self, client: ReconnectingAsyncioModbusTcpClient) -> None:
+        super().__init__()
+
         self._client = client
         _add_made_connection_listener(client, self._handle_made_connection)
         # FIXME lock here because pymodbus currently can't handle concurrent requests.
@@ -77,6 +84,7 @@ class ACThorRegisters(ACThorRegistersMixin):
 
     def _handle_made_connection(self) -> None:
         self._made_connection.set()
+        self.dispatch_event("connected")
 
     async def _get_protocol(self) -> ModbusClientProtocol:
         if self._client.protocol is None:
@@ -194,10 +202,11 @@ class OverrideMode(enum.Enum):
 
 
 class ACThor(EventTarget):
-    def __init__(self, registers: ACThorRegistersMixin, serial_number: str, *,
+    def __init__(self, registers: ACThorRegistersMixinWithEvents, serial_number: str, *,
                  loop_interval: float = 15) -> None:
         super().__init__()
         self.registers = registers
+        registers.add_listener("connected", self._on_connected)
         self.serial_number = serial_number
 
         self.__update_interval = loop_interval
@@ -211,6 +220,9 @@ class ACThor(EventTarget):
         self._load_nominal_power: Optional[int] = None
         self._power: Optional[int] = None
         self._temps: Dict[int, float] = {}
+
+    def __str__(self) -> str:
+        return f"ACThor#{self.serial_number}"
 
     @classmethod
     async def connect(cls, host: str = None, *, timeout: int = None):
@@ -280,12 +292,17 @@ class ACThor(EventTarget):
         return int(1.8 * self.power_target)
 
     def start(self) -> None:
+        logger.debug("%s: starting loop", self)
         assert not self._update_loop_running
         self.__update_loop_task = asyncio.create_task(self.__update_loop())
 
     def stop(self) -> None:
         assert self._update_loop_running
         self.__update_loop_task.cancel()
+
+    async def _on_connected(self) -> None:
+        logger.info("%s: reconnected", self)
+        self.registers.power_timeout = 1.5 * self.__update_interval
 
     async def __read_update(self) -> None:
         self._status = StatusCode(await self.registers.status)  # TODO is this necessary?
@@ -305,9 +322,9 @@ class ACThor(EventTarget):
             self.registers.power = power
 
     async def __update_loop(self) -> None:
-        update_interval = self.__update_interval
-        # TODO this breaks if the device restarts. Needs to be sent when the connection is established.
-        self.registers.power_timeout = 1.5 * update_interval
+        # on_connected isn't called for the initial connection.
+        # To reach this point we MUST have connected at least once though.
+        await self._on_connected()
 
         while True:
             logger.debug("running update")
@@ -321,7 +338,7 @@ class ACThor(EventTarget):
             else:
                 await self.dispatch_event("after_update")
 
-            await asyncio.sleep(update_interval)
+            await asyncio.sleep(self.__update_interval)
 
     async def _force_update_power(self) -> None:
         self.registers.power = self.__power_target_write

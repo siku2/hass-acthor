@@ -1,7 +1,7 @@
 import asyncio
 import inspect
 import logging
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -61,3 +61,27 @@ class EventTarget:
 
     def dispatch_event(self, name: str, *args, **kwargs) -> asyncio.Task:
         return asyncio.create_task(self.__dispatch_event(name, args, kwargs))
+
+
+class HasOptionalEventTargetMixin:
+    @property
+    def event_target(self) -> Optional[EventTarget]:
+        return getattr(self, "__event_target", None)
+
+    @event_target.setter
+    def event_target(self, value: Optional[EventTarget]) -> None:
+        if value is None:
+            del self.event_target
+            return
+        assert isinstance(value, EventTarget)
+        self.__event_target = value
+
+    @event_target.deleter
+    def event_target(self) -> None:
+        delattr(self, "__event_target")
+
+    def _maybe_dispatch_event(self, name: str, *args, **kwargs) -> Optional[asyncio.Task]:
+        et = self.event_target
+        if et is None:
+            return None
+        return et.dispatch_event(name, *args, **kwargs)
