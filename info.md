@@ -1,6 +1,5 @@
 # AC•THOR integration
 
-
 ## Configuration
 
 Go to `Configuration > Integrations`, press the plus button and search for "AC•THOR".

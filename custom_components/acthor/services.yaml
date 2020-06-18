@@ -27,8 +27,8 @@ set_power:
 
         Valid values are:
 
-          - override: Treat the value as absolute (Default setting).
-          - minimum: Set the value as the minimal required power.
-              Will use the normal power if it happens to be bigger.
+          - override: Use the value unless it is 0 (Initial setting).
+          - replace: Ignore the excess power entirely and only use this value.
+          - minimum: Use this value as the minimum, using the excess power if it's bigger.
 
       example: minimum

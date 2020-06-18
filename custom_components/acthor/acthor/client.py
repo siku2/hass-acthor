@@ -115,7 +115,8 @@ class ACThorRegisters(ACThorRegistersMixinWithEvents):
     async def write_registers(self, address: int, values: Iterable[int]) -> None:
         async with self._lock:
             protocol = await self._get_protocol()
-            logger.debug("writing %r to registers starting at %r", values, address)
+            logger.debug("writing %r to registers starting at %r",
+                         values, address)
             await protocol.write_registers(address, values)
 
     async def disconnect(self) -> None:
@@ -198,6 +199,7 @@ class OperationMode(enum.IntEnum):
 
 class OverrideMode(enum.Enum):
     OVERRIDE = "override"
+    REPLACE = "replace"
     MINIMUM = "minimum"
 
 
@@ -271,15 +273,16 @@ class ACThor(EventTarget):
 
     @property
     def power_target(self) -> int:
-        power_override = self._power_override
-        if not power_override:
-            return self._power_excess
+        mode = self._override_mode
 
-        if self._override_mode == OverrideMode.MINIMUM:
-            return max(power_override, self._power_excess)
+        if mode == OverrideMode.REPLACE:
+            return self._power_override
+
+        if mode == OverrideMode.MINIMUM:
+            return max(self._power_override, self._power_excess)
 
         # default is OVERRIDE
-        return power_override or self._power_excess
+        return self._power_override or self._power_excess
 
     @property
     def temperatures(self) -> Dict[int, float]:
@@ -288,8 +291,8 @@ class ACThor(EventTarget):
     @property
     def __power_target_write(self) -> int:
         """This SHOULD be 'power_target' but for some reason ACTHOR only uses half the power it is given."""
-        # TODO find out why ACTHOR only uses half of excess power.
-        return int(1.8 * self.power_target)
+        # TODO find out why ACTHOR only uses half the excess power.
+        return int(2 * self.power_target)
 
     def start(self) -> None:
         logger.debug("%s: starting loop", self)
@@ -305,7 +308,7 @@ class ACThor(EventTarget):
         self.registers.power_timeout = 1.5 * self.__update_interval
 
     async def __read_update(self) -> None:
-        self._status = StatusCode(await self.registers.status)  # TODO is this necessary?
+        self._status = StatusCode(await self.registers.status)
         self._power = await self.registers.power
         self._load_nominal_power = await self.registers.load_nominal_power
 
@@ -370,8 +373,10 @@ class ACThor(EventTarget):
     async def set_power_override(self, watts: Union[bool, int], mode: Union[OverrideMode, str] = None) -> None:
         """Set the power override.
 
-        This overrides the `power_excess` unless it is 0.
-        Use this
+        The override mode determines how the value is used:
+        `OVERRIDE`: Used instead of the excess power if it isn't 0.
+        `REPLACE`: Excess power is ignored entirely even if the override value is 0.
+        `MINIMUM`: The bigger value between excess and override is used.
 
         Args:
             watts: Amount of power in watts.
@@ -381,7 +386,8 @@ class ACThor(EventTarget):
         """
         if watts is True:
             nominal_power = await self.registers.load_nominal_power
-            watts = nominal_power if nominal_power else 1000
+            # nominal power also isn't very accurate.
+            watts = int(1.25 * nominal_power) if nominal_power else 1000
         elif watts is False:
             watts = 0
 
@@ -392,5 +398,4 @@ class ACThor(EventTarget):
         await self._force_update_power()
 
     async def trigger_boost(self) -> None:
-        # FIXME doesn't seem to work
         self.registers.boost_activate = 1
