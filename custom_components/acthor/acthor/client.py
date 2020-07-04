@@ -304,7 +304,7 @@ class ACThor(EventTarget):
 
     async def _on_connected(self) -> None:
         logger.info("%s: reconnected", self)
-        self.registers.power_timeout = 1.5 * self.__update_interval
+        self.registers.power_timeout = round(1.5 * self.__update_interval)
 
     async def __slow_update_once(self) -> None:
         self._status = StatusCode(await self.registers.status)
@@ -395,7 +395,7 @@ class ACThor(EventTarget):
         if mode is not None:
             self._override_mode = OverrideMode(mode)
 
-        self._power_override = watts
+        self._power_override = int(watts)
         await self._force_update_power()
 
     async def trigger_boost(self) -> None:

@@ -33,6 +33,9 @@ class BaseRegister:
     def __init__(self, addr: int) -> None:
         self._addr = addr
 
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}({self._addr})"
+
 
 class SingleRegister(BaseRegister):
     __slots__ = ("_factor",)
