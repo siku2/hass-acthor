@@ -321,19 +321,23 @@ class ACThor(EventTarget):
         self.__power_write(self.power_target)
 
     async def __run_loop(self) -> None:
-        async def _run_update_fn(fn: Callable) -> None:
+        async def _run_update_fn(fn: Callable) -> bool:
             try:
                 await fn()
             except asyncio.CancelledError:
                 raise
             except Exception:
                 logger.exception("error while updating (%s)", fn)
+            else:
+                return True
+
+            return False
 
         async def update_loop() -> None:
             while True:
                 logger.debug("running update")
-                await _run_update_fn(self.__update_once)
-                await self.dispatch_event("after_update")
+                if await _run_update_fn(self.__update_once):
+                    await self.dispatch_event("after_update")
                 await asyncio.sleep(self.__update_interval)
 
         async def slow_update_loop() -> None:

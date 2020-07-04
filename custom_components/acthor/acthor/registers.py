@@ -1,9 +1,12 @@
 import abc
 import asyncio
 import datetime
+import logging
 from typing import Any, Coroutine, Generic, Iterable, Iterator, Tuple, TypeVar
 
 from .abc import ABCModbusProtocol, MultiRegister, SingleRegister
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
@@ -26,7 +29,13 @@ class ReadWriteMixin(ReadOnlyMixin[T], abc.ABC):
     __slots__ = ()
 
     def __set__(self, instance: ABCModbusProtocol, value: T) -> None:
-        asyncio.create_task(self.write(instance, value))
+        asyncio.create_task(self._write_handle_error(instance, value))
+
+    async def _write_handle_error(self, instance: ABCModbusProtocol, value: T) -> None:
+        try:
+            await self.write(instance, value)
+        except Exception:
+            logger.exception("failed to write %s to %s", repr(value), instance)
 
     @abc.abstractmethod
     async def write(self, protocol: ABCModbusProtocol, value: T) -> None:
