@@ -305,7 +305,7 @@ class ACThor(EventTarget):
     async def _on_connected(self) -> None:
         logger.info("%s: reconnected", self)
         self.registers.power_timeout = max(
-            round(1.5 * self.__update_interval), 10)
+            round(1.5 * self.__slow_update_interval), 10)
 
     async def __slow_update_once(self) -> None:
         self._status = StatusCode(await self.registers.status)
