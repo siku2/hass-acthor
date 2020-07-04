@@ -35,7 +35,7 @@ class ReadWriteMixin(ReadOnlyMixin[T], abc.ABC):
         try:
             await self.write(instance, value)
         except Exception:
-            logger.exception("failed to write %s to %s", repr(value), instance)
+            logger.exception("failed to write %s to %s", repr(value), self)
 
     @abc.abstractmethod
     async def write(self, protocol: ABCModbusProtocol, value: T) -> None:
