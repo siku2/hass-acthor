@@ -77,6 +77,4 @@ class ACThorSwitch(ACThorEntity, SwitchEntity):
         self._update_today_energy()
 
     async def _handle_write_power(self, power: int) -> None:
-        self._update_today_energy()
-
-        self.async_schedule_update_ha_state()
+        pass

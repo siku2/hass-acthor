@@ -205,7 +205,7 @@ class OverrideMode(enum.Enum):
 
 class ACThor(EventTarget):
     def __init__(self, registers: ACThorRegistersMixinWithEvents, serial_number: str, *,
-                 loop_interval: float = 15) -> None:
+                 loop_interval: float = 5) -> None:
         super().__init__()
         self.registers = registers
         registers.add_listener("connected", self._on_connected)
@@ -288,11 +288,9 @@ class ACThor(EventTarget):
     def temperatures(self) -> Dict[int, float]:
         return self._temps
 
-    @property
-    def __power_target_write(self) -> int:
-        """This SHOULD be 'power_target' but for some reason ACTHOR only uses half the power it is given."""
+    def __power_write(self, power: int) -> int:
         # TODO find out why ACTHOR only uses half the excess power.
-        return int(2 * self.power_target)
+        self.registers.power = int(1.8 * power)
 
     def start(self) -> None:
         logger.debug("%s: starting loop", self)
@@ -320,9 +318,7 @@ class ACThor(EventTarget):
             self._temps[sensor] = temp
 
     async def __write_update(self) -> None:
-        power = self.__power_target_write
-        if power:
-            self.registers.power = power
+        self.__power_write(self.power_target)
 
     async def __update_loop(self) -> None:
         # on_connected isn't called for the initial connection.
@@ -344,16 +340,9 @@ class ACThor(EventTarget):
             await asyncio.sleep(self.__update_interval)
 
     async def _force_update_power(self) -> None:
-        self.registers.power = self.__power_target_write
-
         power = self.power_target
-        if self._load_nominal_power is None:
-            actual_power = power
-        else:
-            actual_power = min(power, self._load_nominal_power)
-
-        self._power = actual_power
-        _ = self.dispatch_event("after_write_power", actual_power)
+        self.__power_write(power)
+        _ = self.dispatch_event("after_write_power", power)
 
     async def set_power_excess(self, watts: int) -> None:
         """Set the current power excess.

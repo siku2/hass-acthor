@@ -67,4 +67,4 @@ class ACThorEntity(Entity, abc.ABC):
 
     @abc.abstractmethod
     async def _handle_write_power(self, power: int) -> None:
-        pass
+        ...
