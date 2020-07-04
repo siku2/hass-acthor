@@ -212,7 +212,8 @@ class ACThor(EventTarget):
         self.serial_number = serial_number
 
         self.__update_interval = loop_interval
-        self.__update_loop_task: Optional[asyncio.Task] = None
+        self.__slow_update_interval = max(30, loop_interval)
+        self.__run_loop_task: Optional[asyncio.Task] = None
 
         self._power_excess = 0
         self._power_override = 0
@@ -233,8 +234,8 @@ class ACThor(EventTarget):
         return cls(registers, sn)
 
     @property
-    def _update_loop_running(self) -> bool:
-        task = self.__update_loop_task
+    def _run_loop_running(self) -> bool:
+        task = self.__run_loop_task
         return task is not None and not task.done()
 
     @property
@@ -294,50 +295,57 @@ class ACThor(EventTarget):
 
     def start(self) -> None:
         logger.debug("%s: starting loop", self)
-        assert not self._update_loop_running
-        self.__update_loop_task = asyncio.create_task(self.__update_loop())
+        assert not self._run_loop_running
+        self.__run_loop_task = asyncio.create_task(self.__run_loop())
 
     def stop(self) -> None:
-        assert self._update_loop_running
-        self.__update_loop_task.cancel()
+        assert self._run_loop_running
+        self.__run_loop_task.cancel()
 
     async def _on_connected(self) -> None:
         logger.info("%s: reconnected", self)
         self.registers.power_timeout = 1.5 * self.__update_interval
 
-    async def __read_update(self) -> None:
+    async def __slow_update_once(self) -> None:
         self._status = StatusCode(await self.registers.status)
-        self._power = await self.registers.power
         self._load_nominal_power = await self.registers.load_nominal_power
 
         self._temps.clear()
         for sensor, temp in enumerate(await self.registers.get_temps(), 1):
             if not temp:
                 continue
-
             self._temps[sensor] = temp
 
-    async def __write_update(self) -> None:
+    async def __update_once(self) -> None:
+        self._power = await self.registers.power
         self.__power_write(self.power_target)
 
-    async def __update_loop(self) -> None:
-        # on_connected isn't called for the initial connection.
-        # To reach this point we MUST have connected at least once though.
-        await self._on_connected()
-
-        while True:
-            logger.debug("running update")
+    async def __run_loop(self) -> None:
+        async def _run_update_fn(fn: Callable) -> None:
             try:
-                await self.__read_update()
-                await self.__write_update()
+                await fn()
             except asyncio.CancelledError:
                 raise
             except Exception:
-                logger.exception("error while updating")
-            else:
-                await self.dispatch_event("after_update")
+                logger.exception("error while updating (%s)", fn)
 
-            await asyncio.sleep(self.__update_interval)
+        async def update_loop() -> None:
+            while True:
+                logger.debug("running update")
+                await _run_update_fn(self.__update_once)
+                await self.dispatch_event("after_update")
+                await asyncio.sleep(self.__update_interval)
+
+        async def slow_update_loop() -> None:
+            while True:
+                logger.debug("running slow update")
+                await _run_update_fn(self.__slow_update_once)
+                await asyncio.sleep(self.__slow_update_interval)
+
+        # on_connected isn't called for the initial connection.
+        # To reach this point we MUST have connected at least once though.
+        await self._on_connected()
+        await asyncio.gather(update_loop(), slow_update_loop())
 
     async def _force_update_power(self) -> None:
         power = self.power_target
