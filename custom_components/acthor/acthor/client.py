@@ -291,7 +291,7 @@ class ACThor(EventTarget):
 
     def __power_write(self, power: int) -> int:
         # TODO find out why ACTHOR only uses half the excess power.
-        self.registers.power = int(1.8 * power)
+        self.registers.power = int(power)
 
     def start(self) -> None:
         logger.debug("%s: starting loop", self)
