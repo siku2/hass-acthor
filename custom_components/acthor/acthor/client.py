@@ -212,17 +212,18 @@ class ACThor(EventTarget):
         self.serial_number = serial_number
 
         self.__update_interval = loop_interval
-        self.__slow_update_interval = max(30, loop_interval)
+        self.__slow_update_interval = max(60, loop_interval)
         self.__run_loop_task: Optional[asyncio.Task] = None
 
         self._power_excess = 0
         self._power_override = 0
         self._override_mode = OverrideMode.OVERRIDE
 
-        self._status: Optional[StatusCode] = None
-        self._load_nominal_power: Optional[int] = None
-        self._power: Optional[int] = None
-        self._temps: Dict[int, float] = {}
+        self.status: Optional[StatusCode] = None
+        self.load_nominal_power: Optional[int] = None
+        self.relay1_status = 0
+        self.power: Optional[int] = None
+        self.temperatures: Dict[int, float] = {}
 
     def __str__(self) -> str:
         return f"ACThor#{self.serial_number}"
@@ -245,19 +246,6 @@ class ACThor(EventTarget):
     @property
     async def operation_mode(self) -> OperationMode:
         return OperationMode(await self.registers.operation_mode)
-
-    @property
-    def status(self) -> Optional[StatusCode]:
-        return self._status
-
-    @property
-    def power(self) -> Optional[int]:
-        """Current power consumed by the device"""
-        return self._power
-
-    @property
-    def load_nominal_power(self) -> Optional[int]:
-        return self._load_nominal_power
 
     @property
     def power_excess(self) -> int:
@@ -285,10 +273,6 @@ class ACThor(EventTarget):
         # default is OVERRIDE
         return self._power_override or self._power_excess
 
-    @property
-    def temperatures(self) -> Dict[int, float]:
-        return self._temps
-
     def __power_write(self, power: int) -> int:
         # TODO find out why ACTHOR only uses half the excess power.
         self.registers.power = int(power)
@@ -308,17 +292,18 @@ class ACThor(EventTarget):
             round(1.5 * self.__slow_update_interval), 10)
 
     async def __slow_update_once(self) -> None:
-        self._status = StatusCode(await self.registers.status)
-        self._load_nominal_power = await self.registers.load_nominal_power
+        self.status = StatusCode(await self.registers.status)
+        self.load_nominal_power = await self.registers.load_nominal_power
+        self.relay1_status = bool(await self.registers.relay1_status)
 
-        self._temps.clear()
+        self.temperatures.clear()
         for sensor, temp in enumerate(await self.registers.get_temps(), 1):
             if not temp:
                 continue
-            self._temps[sensor] = temp
+            self.temperatures[sensor] = temp
 
     async def __update_once(self) -> None:
-        self._power = await self.registers.power
+        self.power = await self.registers.power
         self.__power_write(self.power_target)
 
     async def __run_loop(self) -> None:
