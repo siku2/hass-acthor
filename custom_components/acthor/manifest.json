@@ -1,6 +1,7 @@
 {
   "domain": "acthor",
   "name": "AC•THOR",
+  "version": "0.1.0",
   "config_flow": true,
   "dependencies": [],
   "codeowners": [
