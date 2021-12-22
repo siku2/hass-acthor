@@ -20,7 +20,7 @@ class ACThorSensor(ACThorEntity):
         }
 
     @property
-    def device_state_attributes(self) -> dict:
+    def extra_state_attributes(self) -> dict:
         return self._attrs
 
     @property
