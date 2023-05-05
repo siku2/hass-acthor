@@ -2,19 +2,21 @@ import abc
 import asyncio
 import datetime
 import logging
-from typing import Any, Coroutine, Generic, Iterable, Iterator, Tuple, TypeVar
+import typing
 
 from .abc import ABCModbusProtocol, MultiRegister, SingleRegister
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar("T")
+T = typing.TypeVar("T")
 
 
-class ReadOnlyMixin(Generic[T], abc.ABC):
+class ReadOnlyMixin(typing.Generic[T], abc.ABC):
     __slots__ = ()
 
-    def __get__(self, instance: ABCModbusProtocol, cls=None) -> Coroutine[Any, Any, T]:
+    def __get__(
+        self, instance: ABCModbusProtocol, cls: typing.Any = None
+    ) -> typing.Coroutine[typing.Any, typing.Any, T]:
         return self.read(instance)
 
     def __set__(self, instance: ABCModbusProtocol, _) -> None:
@@ -42,7 +44,7 @@ class ReadWriteMixin(ReadOnlyMixin[T], abc.ABC):
         ...
 
 
-class ReadOnly(SingleRegister, ReadOnlyMixin[int]):
+class ReadOnly(SingleRegister, ReadOnlyMixin[int | float]):
     __slots__ = ()
 
 
@@ -51,19 +53,21 @@ class ReadOnlyText(MultiRegister, ReadOnlyMixin[str]):
 
     async def read(self, protocol: ABCModbusProtocol) -> str:
         values = await super().read(protocol)
-        return "".join(chr(value >> 8) + chr(value & 0xFF) for value in values)
+        return "".join(
+            chr(value >> 8) + chr(value & 0xFF) for value in map(int, values)
+        )
 
 
-class ReadWrite(SingleRegister, ReadWriteMixin[int]):
+class ReadWrite(SingleRegister, ReadWriteMixin[int | float]):
     __slots__ = ()
 
 
-def i16s_to_bytes(it: Iterable[int]) -> Iterator[int]:
+def i16s_to_bytes(it: typing.Iterable[int]) -> typing.Iterator[int]:
     for value in it:
         yield from value.to_bytes(2, "big")
 
 
-def bytes_to_i16(it: Iterable[int]) -> Iterator[int]:
+def bytes_to_i16(it: typing.Iterable[int]) -> typing.Iterator[int]:
     it = iter(it)
     for high in it:
         low = next(it)
@@ -75,7 +79,7 @@ class ReadWriteMulti(MultiRegister, ReadWriteMixin[int]):
 
     async def read(self, protocol: ABCModbusProtocol) -> int:
         values = await super().read(protocol)
-        return int.from_bytes(tuple(i16s_to_bytes(values)), "big")
+        return int.from_bytes(tuple(i16s_to_bytes(map(int, values))), "big")
 
     async def write(self, protocol: ABCModbusProtocol, value: int) -> None:
         byte_parts = value.to_bytes(2 * self._length, "big")
@@ -87,6 +91,7 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
 
     Provides direct access to the registers with some additional helper methods for accessing multi-register values.
     """
+
     __slots__ = ()
 
     power = ReadWrite(1000)
@@ -366,10 +371,12 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
         1 ... power stage to Out-1
         2 ... power stage to Out-2
         3 ... power stage to Out-3
-    bit 11 – 0: power stage power 0 – 3.000 (watt)
+    bit 11 - 0: power stage power 0 - 3.000 (watt)
     """
 
-    async def get_temps(self) -> Tuple[float, float, float, float, float, float, float, float]:
+    async def get_temps(
+        self,
+    ) -> tuple[float, float, float, float, float, float, float, float]:
         """Get the temperatures.
 
         Reads all eight temperature sensors with only two instructions.
@@ -377,7 +384,9 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
         Returns:
             8-tuple containing the temperatures in celsius.
         """
-        first_temp, other_temps = await asyncio.gather(self.temp1, self._temp_range_2_8.read(self))
+        first_temp, other_temps = await asyncio.gather(
+            self.temp1, self._temp_range_2_8.read(self)
+        )
         return (first_temp, *other_temps)
 
     async def get_temp(self, sensor: int) -> float:
@@ -401,15 +410,19 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
         tzinfo = datetime.timezone.utc
 
         return datetime.time(
-            hour, minute, second,
+            hour,
+            minute,
+            second,
             tzinfo=tzinfo,
         )
 
-    async def get_control_firmware_version(self) -> Tuple[int, int]:
+    async def get_control_firmware_version(self) -> tuple[int, int]:
         """Read the full control firmware version.
 
         Returns:
             2-tuple (major, sub)..
         """
-        maj, sub = await asyncio.gather(self.control_firmware_version, self.control_firmware_subversion)
+        maj, sub = await asyncio.gather(
+            self.control_firmware_version, self.control_firmware_subversion
+        )
         return maj, sub

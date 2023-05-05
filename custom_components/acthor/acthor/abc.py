@@ -1,5 +1,5 @@
 import abc
-from typing import Iterable, Sized, Tuple, Union
+import typing
 
 
 class ABCModbusProtocol(abc.ABC):
@@ -15,7 +15,7 @@ class ABCModbusProtocol(abc.ABC):
         ...
 
     @abc.abstractmethod
-    async def read_registers(self, address: int, count: int) -> Tuple[int, ...]:
+    async def read_registers(self, address: int, count: int) -> tuple[int, ...]:
         ...
 
     @abc.abstractmethod
@@ -23,7 +23,7 @@ class ABCModbusProtocol(abc.ABC):
         ...
 
     @abc.abstractmethod
-    async def write_registers(self, address: int, values: Iterable[int]) -> None:
+    async def write_registers(self, address: int, values: list[int]) -> None:
         ...
 
 
@@ -40,7 +40,7 @@ class BaseRegister:
 class SingleRegister(BaseRegister):
     __slots__ = ("_factor",)
 
-    def __init__(self, addr: int, factor: float = None):
+    def __init__(self, addr: int, factor: float | None = None):
         super().__init__(addr)
 
         if factor == 0:
@@ -48,14 +48,14 @@ class SingleRegister(BaseRegister):
 
         self._factor = factor
 
-    async def read(self, protocol: ABCModbusProtocol) -> Union[float, int]:
+    async def read(self, protocol: ABCModbusProtocol) -> float | int:
         value = await protocol.read_register(self._addr)
         if self._factor is not None:
             value /= self._factor
 
         return value
 
-    async def write(self, protocol: ABCModbusProtocol, value: Union[float, int]) -> None:
+    async def write(self, protocol: ABCModbusProtocol, value: float | int) -> None:
         if self._factor is not None:
             value *= self._factor
 
@@ -65,12 +65,12 @@ class SingleRegister(BaseRegister):
 class MultiRegister(BaseRegister):
     __slots__ = ("_length", "_factor")
 
-    def __init__(self, addr: int, length: int, *, factor: float = None) -> None:
+    def __init__(self, addr: int, length: int, *, factor: float | None = None) -> None:
         super().__init__(addr)
         self._length = length
         self._factor = factor
 
-    async def read(self, protocol: ABCModbusProtocol) -> Tuple[Union[int, float], ...]:
+    async def read(self, protocol: ABCModbusProtocol) -> tuple[int | float, ...]:
         values = await protocol.read_registers(self._addr, self._length)
         fac = self._factor
         if fac is None:
@@ -78,12 +78,16 @@ class MultiRegister(BaseRegister):
 
         return tuple(val / fac for val in values)
 
-    async def write(self, protocol: ABCModbusProtocol, values: Iterable[Union[int, float]]) -> None:
+    async def write(
+        self, protocol: ABCModbusProtocol, values: typing.Iterable[float | int]
+    ) -> None:
         fac = self._factor
         if fac is not None:
-            values = tuple(fac * val for val in values)
-        elif not isinstance(values, Sized):
-            values = tuple(values)
+            values = list(int(fac * val) for val in values)
+        elif not isinstance(values, typing.Sized):
+            values = list(values)
+
+        values = typing.cast(list[int], values)
 
         if len(values) != self._length:
             raise ValueError("can only write matching length")

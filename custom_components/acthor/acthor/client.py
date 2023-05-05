@@ -1,14 +1,13 @@
 import abc
 import asyncio
 import enum
-import functools
 import logging
-from typing import Callable, Dict, Iterable, Optional, Tuple, Union
+import typing
+
+from pymodbus.client import AsyncModbusTcpClient
+from pymodbus.register_read_message import ReadHoldingRegistersResponse
 
 from .event_target import EventTarget
-# FIXME switch back to pymodbus once HomeAssistant uses a compatible version
-from .pymodbus_vendor.client.asynchronous.asyncio import ModbusClientProtocol, ReconnectingAsyncioModbusTcpClient, \
-    init_tcp_client
 from .registers import ACThorRegistersMixin
 
 logger = logging.getLogger(__name__)
@@ -17,22 +16,13 @@ logger = logging.getLogger(__name__)
 MODBUS_PORT = 502
 
 
-def _add_made_connection_listener(client: ReconnectingAsyncioModbusTcpClient, listener: Callable) -> None:
-    previous = client.protocol_made_connection
-
-    @functools.wraps(previous)
-    def wrapper(*args):
-        previous(*args)
-        listener()
-
-    client.protocol_made_connection = wrapper
-
-
-async def test_connection(host: str, port: int = MODBUS_PORT, *, timeout: int = None) -> bool:
+async def test_connection(
+    host: str, port: int = MODBUS_PORT, *, timeout: int | None = None
+) -> bool:
     loop = asyncio.get_running_loop()
     conn_lost = asyncio.Event()
     protocol = asyncio.Protocol()
-    protocol.connection_lost = lambda e: conn_lost.set()
+    protocol.connection_lost = lambda exc: conn_lost.set()
 
     try:
         coro = loop.create_connection(lambda: protocol, host, port)
@@ -45,82 +35,61 @@ async def test_connection(host: str, port: int = MODBUS_PORT, *, timeout: int = 
         return True
 
 
-async def modbus_connect(host: str, port: int = MODBUS_PORT, *,
-                         timeout: int = None) -> ReconnectingAsyncioModbusTcpClient:
-    coro = init_tcp_client(None, None, host, port)
-    client: ReconnectingAsyncioModbusTcpClient = await asyncio.wait_for(coro, timeout=timeout)
-
-    return client
-
-
 class ACThorRegistersMixinWithEvents(EventTarget, ACThorRegistersMixin, abc.ABC):
     __slots__ = ()
 
+    async def disconnect(self) -> None:
+        ...
+
 
 class ACThorRegisters(ACThorRegistersMixinWithEvents):
-    __slots__ = ("_client", "_lock",
-                 "_made_connection")
+    __slots__ = ("_client", "_lock")
 
-    def __init__(self, client: ReconnectingAsyncioModbusTcpClient) -> None:
+    def __init__(self, client: AsyncModbusTcpClient) -> None:
         super().__init__()
 
         self._client = client
-        _add_made_connection_listener(client, self._handle_made_connection)
         # FIXME lock here because pymodbus currently can't handle concurrent requests.
         #   see: https://github.com/riptideio/pymodbus/issues/475
         self._lock = asyncio.Lock()
 
-        self._made_connection = asyncio.Event()
-
     @classmethod
-    async def connect(cls, host: str = None, *, timeout: int = None):
+    async def connect(cls, host: str, *, timeout: int | None = None):
         logger.info("connecting to %r", host)
-        client = await modbus_connect(host, timeout=timeout)
+        client = AsyncModbusTcpClient(host, port=MODBUS_PORT)
+        await client.connect()
         return cls(client)
 
     @property
     def available(self) -> bool:
         return self._client.connected
 
-    def _handle_made_connection(self) -> None:
-        self._made_connection.set()
-        self.dispatch_event("connected")
-
-    async def _get_protocol(self) -> ModbusClientProtocol:
-        if self._client.protocol is None:
-            logger.debug("no protocol, waiting for connection")
-            self._made_connection.clear()
-            await self._made_connection.wait()
-
-        return self._client.protocol
-
     async def read_register(self, address: int) -> int:
         return (await self.read_registers(address, 1))[0]
 
-    async def read_registers(self, address: int, count: int) -> Tuple[int, ...]:
+    async def read_registers(self, address: int, count: int) -> tuple[int, ...]:
         async with self._lock:
-            protocol = await self._get_protocol()
             logger.debug("reading %r register(s) from %r", count, address)
-            result = await protocol.read_holding_registers(address, count)
-
-        # TODO error handling
+            tmp = self._client.read_holding_registers(address, count)
+            result: ReadHoldingRegistersResponse = await typing.cast(
+                typing.Awaitable[ReadHoldingRegistersResponse], tmp
+            )
         return tuple(result.registers)
 
     async def write_register(self, address: int, value: int) -> None:
         async with self._lock:
-            protocol = await self._get_protocol()
             logger.debug("writing %r to register %r", value, address)
-            await protocol.write_register(address, value)
+            tmp = self._client.write_register(address, value)
+            await typing.cast(typing.Awaitable[None], tmp)
 
-    async def write_registers(self, address: int, values: Iterable[int]) -> None:
+    async def write_registers(self, address: int, values: list[int]) -> None:
         async with self._lock:
-            protocol = await self._get_protocol()
-            logger.debug("writing %r to registers starting at %r",
-                         values, address)
-            await protocol.write_registers(address, values)
+            logger.debug("writing %r to registers starting at %r", values, address)
+            tmp = self._client.write_registers(address, values)
+            await typing.cast(typing.Awaitable[None], tmp)
 
     async def disconnect(self) -> None:
-        self._client.stop()
+        await self._client.close()
 
 
 class StatusCode(int):
@@ -204,8 +173,13 @@ class OverrideMode(enum.Enum):
 
 
 class ACThor(EventTarget):
-    def __init__(self, registers: ACThorRegistersMixinWithEvents, serial_number: str, *,
-                 loop_interval: float = 5) -> None:
+    def __init__(
+        self,
+        registers: ACThorRegistersMixinWithEvents,
+        serial_number: str,
+        *,
+        loop_interval: float = 5,
+    ) -> None:
         super().__init__()
         self.registers = registers
         registers.add_listener("connected", self._on_connected)
@@ -213,23 +187,23 @@ class ACThor(EventTarget):
 
         self.__update_interval = loop_interval
         self.__slow_update_interval = max(60, loop_interval)
-        self.__run_loop_task: Optional[asyncio.Task] = None
+        self.__run_loop_task: asyncio.Task[None] | None = None
 
         self._power_excess = 0
         self._power_override = 0
         self._override_mode = OverrideMode.OVERRIDE
 
-        self.status: Optional[StatusCode] = None
-        self.load_nominal_power: Optional[int] = None
+        self.status: StatusCode | None = None
+        self.load_nominal_power: int | None = None
         self.relay1_status = 0
-        self.power: Optional[int] = None
-        self.temperatures: Dict[int, float] = {}
+        self.power: int | None = None
+        self.temperatures: dict[int, float] = {}
 
     def __str__(self) -> str:
         return f"ACThor#{self.serial_number}"
 
     @classmethod
-    async def connect(cls, host: str = None, *, timeout: int = None):
+    async def connect(cls, host: str, *, timeout: int | None = None):
         registers = await ACThorRegisters.connect(host, timeout=timeout)
         sn = await registers.serial_number
         return cls(registers, sn)
@@ -273,7 +247,7 @@ class ACThor(EventTarget):
         # default is OVERRIDE
         return self._power_override or self._power_excess
 
-    def __power_write(self, power: int) -> int:
+    def __power_write(self, power: int) -> None:
         # TODO find out why ACTHOR only uses half the excess power.
         self.registers.power = int(power)
 
@@ -283,17 +257,16 @@ class ACThor(EventTarget):
         self.__run_loop_task = asyncio.create_task(self.__run_loop())
 
     def stop(self) -> None:
-        assert self._run_loop_running
+        assert self.__run_loop_task
         self.__run_loop_task.cancel()
 
     async def _on_connected(self) -> None:
         logger.info("%s: reconnected", self)
-        self.registers.power_timeout = max(
-            round(1.5 * self.__slow_update_interval), 10)
+        self.registers.power_timeout = max(round(1.5 * self.__slow_update_interval), 10)
 
     async def __slow_update_once(self) -> None:
         self.status = StatusCode(await self.registers.status)
-        self.load_nominal_power = await self.registers.load_nominal_power
+        self.load_nominal_power = int(await self.registers.load_nominal_power)
         self.relay1_status = bool(await self.registers.relay1_status)
 
         self.temperatures.clear()
@@ -303,11 +276,13 @@ class ACThor(EventTarget):
             self.temperatures[sensor] = temp
 
     async def __update_once(self) -> None:
-        self.power = await self.registers.power
+        self.power = int(await self.registers.power)
         self.__power_write(self.power_target)
 
     async def __run_loop(self) -> None:
-        async def _run_update_fn(fn: Callable) -> bool:
+        async def _run_update_fn(
+            fn: typing.Callable[[], typing.Awaitable[None]]
+        ) -> bool:
             try:
                 await fn()
             except asyncio.CancelledError:
@@ -357,7 +332,9 @@ class ACThor(EventTarget):
         self._power_excess = watts
         await self._force_update_power()
 
-    async def set_power_override(self, watts: Union[bool, int], mode: Union[OverrideMode, str] = None) -> None:
+    async def set_power_override(
+        self, watts: bool | int, mode: OverrideMode | str | None = None
+    ) -> None:
         """Set the power override.
 
         The override mode determines how the value is used:
