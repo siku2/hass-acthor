@@ -1,18 +1,23 @@
+import typing
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import DEVICE_CLASS_POWER, POWER_WATT, STATE_UNKNOWN
+from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.typing import HomeAssistantType
 
 from . import ACThor, get_component
 from .entity import ACThorEntity
 
 
-async def async_setup_entry(hass: HomeAssistantType, config_entry: ConfigEntry, add_entities):
+async def async_setup_entry(
+    hass: HomeAssistantType, config_entry: ConfigEntry, add_entities
+):
     component = get_component(hass, config_entry.entry_id)
     add_entities((ACThorSensor(component.device, component.device_info),))
 
 
 class ACThorSensor(ACThorEntity):
-    def __init__(self, device: ACThor, device_info: dict) -> None:
+    def __init__(self, device: ACThor, device_info: DeviceInfo) -> None:
         super().__init__(device, device_info, sensor_type="Sensor")
         self._state = STATE_UNKNOWN
         self._attrs = {
@@ -20,7 +25,7 @@ class ACThorSensor(ACThorEntity):
         }
 
     @property
-    def extra_state_attributes(self) -> dict:
+    def extra_state_attributes(self) -> dict[str, typing.Any]:
         return self._attrs
 
     @property

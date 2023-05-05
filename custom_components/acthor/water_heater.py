@@ -1,41 +1,49 @@
 import asyncio
 from typing import Optional
 
-from homeassistant.components.water_heater import ATTR_TARGET_TEMP_HIGH, ATTR_TARGET_TEMP_LOW, WaterHeaterEntity
+from homeassistant.components.water_heater import (
+    ATTR_TARGET_TEMP_HIGH,
+    ATTR_TARGET_TEMP_LOW,
+    WaterHeaterEntity,
+    WaterHeaterEntityFeature,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_OFF, STATE_ON, TEMP_CELSIUS
+from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.typing import HomeAssistantType
 
 from . import ACThor, get_component
 from .entity import ACThorEntity
 
-SUPPORT_FLAGS_HEATER = 0
 
-
-async def async_setup_entry(hass: HomeAssistantType, config_entry: ConfigEntry, add_entities):
+async def async_setup_entry(
+    hass: HomeAssistantType, config_entry: ConfigEntry, add_entities
+):
     component = get_component(hass, config_entry.entry_id)
-    add_entities((ACThorWaterHeater(component.device,
-                                    component.device_info, temp_sensor=1),))
+    add_entities(
+        (ACThorWaterHeater(component.device, component.device_info, temp_sensor=1),)
+    )
 
 
 class ACThorWaterHeater(ACThorEntity, WaterHeaterEntity):
-    def __init__(self, device: ACThor, device_info: dict, *,
-                 temp_sensor: int) -> None:
+    def __init__(
+        self, device: ACThor, device_info: DeviceInfo, *, temp_sensor: int
+    ) -> None:
         super().__init__(device, device_info, sensor_type="Water Heater")
 
         self._min_temp = None
         self._max_temp = None
         self._temp_sensor = temp_sensor
         self._temp = None
-        self._on = False
+        self._on: bool = False
 
     @property
-    def min_temp(self) -> Optional[float]:
-        return self._min_temp
+    def min_temp(self) -> float:
+        return self._min_temp or 0.0
 
     @property
-    def max_temp(self) -> Optional[float]:
-        return self._max_temp
+    def max_temp(self) -> float:
+        return self._max_temp or 0.0
 
     @property
     def current_temperature(self) -> Optional[float]:
@@ -50,8 +58,8 @@ class ACThorWaterHeater(ACThorEntity, WaterHeaterEntity):
         return TEMP_CELSIUS
 
     @property
-    def supported_features(self) -> int:
-        return SUPPORT_FLAGS_HEATER
+    def supported_features(self) -> WaterHeaterEntityFeature:
+        return WaterHeaterEntityFeature.TARGET_TEMPERATURE
 
     async def async_set_temperature(self, **kwargs) -> None:
         reg = self._device.registers
@@ -79,7 +87,7 @@ class ACThorWaterHeater(ACThorEntity, WaterHeaterEntity):
 
         self._min_temp, self._max_temp = await asyncio.gather(reg.ww1_min, reg.ww1_max)
         self._temp = dev.temperatures[self._temp_sensor]
-        self._on = dev.power > 0
+        self._on = (dev.power or 0) > 0
 
     async def _handle_write_power(self, power: int) -> None:
         pass
