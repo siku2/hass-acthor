@@ -1,0 +1,42 @@
+name: "Release"
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - '*'
+
+permissions: {}
+
+jobs:
+  release:
+    name: "Release"
+    runs-on: "ubuntu-latest"
+    permissions:
+      contents: write
+    steps:
+      - name: "Checkout the repository"
+        uses: "actions/checkout@v4"
+
+      - name: Gather information
+        shell: bash
+        run: |
+          INTEGRATION_DOMAIN=$(yq -r -oj '.domain' custom_components/*/manifest.json) || exit
+          echo "INTEGRATION_DOMAIN=$INTEGRATION_DOMAIN" | tee "$GITHUB_ENV"
+
+      - name: "Adjust version number"
+        shell: "bash"
+        run: |
+          yq -i -o json '.version="${{ github.ref_name }}"' \
+            "${{ github.workspace }}/custom_components/$INTEGRATION_DOMAIN/manifest.json"
+
+      - name: "ZIP the integration directory"
+        shell: "bash"
+        run: |
+          cd "${{ github.workspace }}/custom_components/$INTEGRATION_DOMAIN"
+          zip "$INTEGRATION_DOMAIN.zip" -r ./
+
+      - name: "Upload the ZIP file to the release"
+        uses: softprops/action-gh-release@v2.0.3
+        with:
+          files: ${{ github.workspace }}/custom_components/${{ env.INTEGRATION_DOMAIN }}/${{ env.INTEGRATION_DOMAIN }}.zip

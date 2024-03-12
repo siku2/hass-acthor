@@ -1,4 +1,10 @@
-# AC•THOR
+# AC•THOR Home Assistant Integration
+
+[![GitHub Release](https://img.shields.io/github/release/siku2/hass-acthor.svg?style=flat-square)](https://github.com/siku2/hass-acthor/releases)
+[![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg?style=flat-square)](https://hacs.xyz/docs/faq/custom_repositories)
+
+[![License](https://img.shields.io/github/license/siku2/hass-acthor.svg?style=flat-square)](LICENSE)
+[![GitHub Activity](https://img.shields.io/github/commit-activity/y/siku2/hass-acthor.svg?style=flat-square)](https://github.com/siku2/hass-acthor/commits/main)
 
 Home Assistant integration for my-PV's AC•THOR.
 
@@ -16,40 +22,28 @@ Don't hesitate to open an issue if something seems off.
 
 ## Installation
 
-1. Go to the HACS Settings and add the custom repository `siku2/hass-acthor` with category "Integration".
-2. Open the "Integrations" tab and search for "AC•THOR".
-3. Follow the instructions there to set the integration up.
+Make sure you have [HACS](https://hacs.xyz) installed.
 
-## Entities
+1. Add this repository as a custom repository to HACS: [![Add Repository](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=siku2&repository=hass-acthor&category=integration)
+2. Use HACS to install the integration.
+3. Restart Home Assistant.
+4. Set up the integration using the UI: [![Add Integration](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=acthor)
 
-The integration adds multiple entities because the AC•THOR doesn't really fit any platform.
+## Contributions are welcome
 
-### Sensor
+If you want to contribute to this please read the [Contribution guidelines](CONTRIBUTING.md)
 
-The sensor reflects the current power usage of the device.
-It also comes with a few additional attributes:
+### Providing translations for other languages
 
-- `status`: Status name
-- `status_code`: Status code number
-- `power_target`: Power usage the integration is targeting.
-  This will be different from the actual state if the device isn't using all the power it's given.
-- `load_nominal_power`: The load's nominal power
-- `temp_internal`: Internal temperature
-- `temp_sensor_X`: Temperature sensors
+[![GitLocalize](https://gitlocalize.com/repo/9429/whole_project/badge.svg)](https://gitlocalize.com/repo/9429)
 
-### Switch
+If you would like to use the integration in another language, you can help out by providing the necessary translations.
 
-The switch uses the power-override feature to operate the device like a switch.
-Turning the switch on will allow the device to use as much power as the `load_nominal_power` reports.
-Note that power-override deliberately takes precedence over power-excess.
+[Head over to **GitLocalize** to start translating.](https://gitlocalize.com/repo/9429)
 
-### Water Heater
+If your desired language isn't available there, just open an issue to request it.
 
-For the water heater entity to be added the device must be in one of the warm water modes.
-
-## Services
-
-For now, please refer to the [services.yaml](custom_components/acthor/services.yaml) file for information about the available services.
+You can also just do the translations manually in [custom_components/acthor/translations/](./custom_components/acthor/translations/) and open a pull request with the changes.
 
 ## Limitations
 

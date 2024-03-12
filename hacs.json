@@ -1,4 +1,8 @@
 {
-  "name": "AC•THOR",
-  "iot_class": "Local Polling"
+    "name": "AC•THOR",
+    "filename": "acthor.zip",
+    "hide_default_branch": true,
+    "homeassistant": "2024.1.0",
+    "render_readme": true,
+    "zip_release": true
 }
