@@ -45,7 +45,7 @@ class EventTarget:
         *,
         event_name: str,
         args: tuple[typing.Any, ...],
-        kwargs: dict[str, typing.Any]
+        kwargs: dict[str, typing.Any],
     ) -> None:
         _LOGGER.exception(
             "listener %r raised error while handling event %r",
@@ -60,7 +60,7 @@ class EventTarget:
         args: tuple[typing.Any, ...],
         kwargs: dict[str, typing.Any],
         *,
-        event_name: str
+        event_name: str,
     ) -> None:
         try:
             res = listener(*args, **kwargs)

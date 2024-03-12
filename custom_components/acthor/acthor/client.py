@@ -4,6 +4,7 @@ import enum
 import logging
 import typing
 
+import pymodbus.exceptions
 from pymodbus.client import AsyncModbusTcpClient
 from pymodbus.register_read_message import ReadHoldingRegistersResponse
 
@@ -16,30 +17,20 @@ logger = logging.getLogger(__name__)
 MODBUS_PORT = 502
 
 
-async def test_connection(
-    host: str, port: int = MODBUS_PORT, *, timeout: int | None = None
-) -> bool:
-    loop = asyncio.get_running_loop()
-    conn_lost = asyncio.Event()
-    protocol = asyncio.Protocol()
-    protocol.connection_lost = lambda exc: conn_lost.set()
-
+async def test_connection(host: str, *, timeout: int | None = None) -> bool:
+    client = AsyncModbusTcpClient(host, port=MODBUS_PORT, timeout=timeout)
     try:
-        coro = loop.create_connection(lambda: protocol, host, port)
-        transport, _ = await asyncio.wait_for(coro, timeout=timeout)
+        return await client.connect()
     except Exception:
         return False
-    else:
-        transport.close()
-        await conn_lost.wait()
-        return True
+    finally:
+        client.close()
 
 
 class ACThorRegistersMixinWithEvents(EventTarget, ACThorRegistersMixin, abc.ABC):
     __slots__ = ()
 
-    async def disconnect(self) -> None:
-        ...
+    async def disconnect(self) -> None: ...
 
 
 class ACThorRegisters(ACThorRegistersMixinWithEvents):
@@ -56,8 +47,9 @@ class ACThorRegisters(ACThorRegistersMixinWithEvents):
     @classmethod
     async def connect(cls, host: str, *, timeout: int | None = None):
         logger.info("connecting to %r", host)
-        client = AsyncModbusTcpClient(host, port=MODBUS_PORT)
-        await client.connect()
+        client = AsyncModbusTcpClient(host, port=MODBUS_PORT, timeout=timeout)
+        if not await client.connect():
+            raise pymodbus.exceptions.ConnectionException("not connected")
         return cls(client)
 
     @property
@@ -71,7 +63,7 @@ class ACThorRegisters(ACThorRegistersMixinWithEvents):
         async with self._lock:
             logger.debug("reading %r register(s) from %r", count, address)
             tmp = self._client.read_holding_registers(address, count)
-            result: ReadHoldingRegistersResponse = await typing.cast(
+            result = await typing.cast(
                 typing.Awaitable[ReadHoldingRegistersResponse], tmp
             )
         return tuple(result.registers)
@@ -89,7 +81,7 @@ class ACThorRegisters(ACThorRegistersMixinWithEvents):
             await typing.cast(typing.Awaitable[None], tmp)
 
     async def disconnect(self) -> None:
-        await self._client.close()
+        self._client.close()
 
 
 class StatusCode(int):
@@ -281,7 +273,7 @@ class ACThor(EventTarget):
 
     async def __run_loop(self) -> None:
         async def _run_update_fn(
-            fn: typing.Callable[[], typing.Awaitable[None]]
+            fn: typing.Callable[[], typing.Awaitable[None]],
         ) -> bool:
             try:
                 await fn()

@@ -20,7 +20,7 @@ class ACThorSensor(ACThorEntity):
     def __init__(self, device: ACThor, device_info: DeviceInfo) -> None:
         super().__init__(device, device_info, sensor_type="Sensor")
         self._state = STATE_UNKNOWN
-        self._attrs = {
+        self._attrs: dict[str, typing.Any] = {
             "serial_number": device.serial_number,
         }
 
@@ -51,7 +51,7 @@ class ACThorSensor(ACThorEntity):
         self._state = str(dev.power)
 
         attrs = self._attrs
-        attrs["status"] = dev.status.name
+        attrs["status"] = dev.status.name if dev.status is not None else None
         attrs["status_code"] = dev.status
         attrs["relay1_status"] = "on" if dev.relay1_status else "off"
         attrs["override_mode"] = dev.override_mode.value

@@ -23,15 +23,15 @@ class ReadOnlyMixin(typing.Generic[T], abc.ABC):
         raise AttributeError
 
     @abc.abstractmethod
-    async def read(self, protocol: ABCModbusProtocol) -> T:
-        ...
+    async def read(self, protocol: ABCModbusProtocol) -> T: ...
 
 
 class ReadWriteMixin(ReadOnlyMixin[T], abc.ABC):
     __slots__ = ()
 
     def __set__(self, instance: ABCModbusProtocol, value: T) -> None:
-        asyncio.create_task(self._write_handle_error(instance, value))
+        task = asyncio.create_task(self._write_handle_error(instance, value))
+        _task = task
 
     async def _write_handle_error(self, instance: ABCModbusProtocol, value: T) -> None:
         try:
@@ -40,8 +40,7 @@ class ReadWriteMixin(ReadOnlyMixin[T], abc.ABC):
             logger.exception("failed to write %s to %s", repr(value), self)
 
     @abc.abstractmethod
-    async def write(self, protocol: ABCModbusProtocol, value: T) -> None:
-        ...
+    async def write(self, protocol: ABCModbusProtocol, value: T) -> None: ...
 
 
 class ReadOnly(SingleRegister, ReadOnlyMixin[int | float]):
@@ -96,7 +95,7 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
 
     power = ReadWrite(1000)
     """W
-    
+
     0-3.000 M1, 0-6.000 M3,
     0-9.000 AC•THOR 9s
     """
@@ -139,7 +138,7 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
 
     status = ReadOnly(1003)
     """
-    
+
     0..... Off
     1-8... device start-up
     9... operation
@@ -172,7 +171,7 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
     number = ReadWrite(1013)
     max_power = ReadWrite(1014)
     """500..3000W
-    
+
     do not use with 9s
     """
     tempchip = ReadOnly(1015, 10)
@@ -182,7 +181,7 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
     control_firmware_subversion = ReadOnly(1028)
     control_firmware_update_available = ReadOnly(1029)
     """
-    
+
     0 : no new afw available,
     1 : new afw available (download not started, fw-version in variable Fwup_actual_version)
     2 : download started (ini-file download)
@@ -254,12 +253,12 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
     """V"""
     u_l2 = ReadOnly(1067)
     """V
-    
+
     9s only, ACTHOR replies 0
     """
     u_l3 = ReadOnly(1072)
     """V
-    
+
     9s only, ACTHOR replies 0
     """
 
@@ -267,12 +266,12 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
     """A"""
     i_l2 = ReadOnly(1068, 10)
     """A
-    
+
     9s only, ACTHOR replies 0
     """
     i_l3 = ReadOnly(1073, 10)
     """A
-    
+
     9s only, ACTHOR replies 0
     """
 
@@ -287,12 +286,12 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
 
     operation_mode = ReadWrite(1065)
     """1-8
-    
+
     since version a0010004
     """
     access_level = ReadWrite(1066)
     """1-3
-    
+
     since version a0010004
     """
 
@@ -300,7 +299,7 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
     """integer, negative is feed in"""
     control_type = ReadWrite(1070)
     """
-    
+
     1  = http
     2  = Modbus TCP
     3  = Fronius Auto
@@ -319,23 +318,23 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
     """
     pmax_abs = ReadOnly(1071)
     """
-    
+
     incl. Slave-Power in case of multi-unit-mode
     """
 
     p_out1 = ReadOnly(1074)
     """W
-    
+
     9s only, ACTHOR replies 0
     """
     p_out2 = ReadOnly(1075)
     """W
-    
+
     9s only, ACTHOR replies 0
     """
     p_out3 = ReadOnly(1076)
     """W
-    
+
     9s only, ACTHOR replies 0
     """
 
@@ -343,7 +342,7 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
 
     operation_state = ReadOnly(1077)
     """
-    
+
     0 green tick flashes
     1 yellow wave is on
     2 yellow wave flashes
@@ -354,15 +353,15 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
 
     power_big = ReadWriteMulti(1078, 2)
     """W
-    
+
     Only for large systems with several units (multi-mode) and output specifications greater than
     65,535 watts. Power below this value is entered in register 1000.
     """
     power_and_relays = ReadWrite(1080)
     """W
-    
+
     9s only
-    
+
     Allows direct access to the AC•THOR 9s power stage and the relays in Modbus TCP mode.
     bit 15: relay Out-3
     bit 14: relay Out-2

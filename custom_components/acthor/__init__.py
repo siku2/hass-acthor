@@ -1,8 +1,10 @@
 import logging
 
+import pymodbus.exceptions
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_MODE, CONF_HOST
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.entity import DeviceInfo
@@ -68,7 +70,11 @@ _LOADED_ENTRIES: list[str] = []
 async def async_setup_entry(hass: HomeAssistantType, entry: ConfigEntry) -> bool:
     data = entry.data
 
-    device: ACThor = await ACThor.connect(data[CONF_HOST])
+    try:
+        device: ACThor = await ACThor.connect(data[CONF_HOST])
+    except pymodbus.exceptions.ConnectionException:
+        raise ConfigEntryNotReady
+
     device.start()
 
     sw_version = await device.registers.get_control_firmware_version()
@@ -104,14 +110,13 @@ async def async_setup_entry(hass: HomeAssistantType, entry: ConfigEntry) -> bool
 async def async_unload_entry(
     hass: HomeAssistantType, config_entry: ConfigEntry
 ) -> bool:
-    for domain in _LOADED_ENTRIES:
-        await hass.config_entries.async_forward_entry_unload(config_entry, domain)
-    _LOADED_ENTRIES.clear()
+    if unload_ok := await hass.config_entries.async_unload_platforms(
+        config_entry, _LOADED_ENTRIES
+    ):
+        component = get_components(hass).pop(config_entry.entry_id)
+        await component.shutdown()
 
-    component = get_components(hass).pop(config_entry.entry_id)
-    await component.shutdown()
-
-    return True
+    return unload_ok
 
 
 class Component:

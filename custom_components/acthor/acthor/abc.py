@@ -7,24 +7,19 @@ class ABCModbusProtocol(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def available(self) -> bool:
-        ...
+    def available(self) -> bool: ...
 
     @abc.abstractmethod
-    async def read_register(self, address: int) -> int:
-        ...
+    async def read_register(self, address: int) -> int: ...
 
     @abc.abstractmethod
-    async def read_registers(self, address: int, count: int) -> tuple[int, ...]:
-        ...
+    async def read_registers(self, address: int, count: int) -> tuple[int, ...]: ...
 
     @abc.abstractmethod
-    async def write_register(self, address: int, value: int) -> None:
-        ...
+    async def write_register(self, address: int, value: int) -> None: ...
 
     @abc.abstractmethod
-    async def write_registers(self, address: int, values: list[int]) -> None:
-        ...
+    async def write_registers(self, address: int, values: list[int]) -> None: ...
 
 
 class BaseRegister:
@@ -83,7 +78,7 @@ class MultiRegister(BaseRegister):
     ) -> None:
         fac = self._factor
         if fac is not None:
-            values = list(int(fac * val) for val in values)
+            values = [int(fac * val) for val in values]
         elif not isinstance(values, typing.Sized):
             values = list(values)
 

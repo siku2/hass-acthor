@@ -1,7 +1,7 @@
 import datetime
 import logging
 import time
-from typing import Any, Optional
+from typing import Any
 
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
@@ -37,7 +37,7 @@ class ACThorSwitch(ACThorEntity, SwitchEntity):
         return self._device.power_override > 0
 
     @property
-    def current_power_w(self) -> Optional[float]:
+    def current_power_w(self) -> float | None:
         return self._device.power
 
     @property

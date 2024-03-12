@@ -1,5 +1,4 @@
 import asyncio
-from typing import Optional
 
 from homeassistant.components.water_heater import (
     ATTR_TARGET_TEMP_HIGH,
@@ -46,7 +45,7 @@ class ACThorWaterHeater(ACThorEntity, WaterHeaterEntity):
         return self._max_temp or 0.0
 
     @property
-    def current_temperature(self) -> Optional[float]:
+    def current_temperature(self) -> float | None:
         return self._temp
 
     @property
