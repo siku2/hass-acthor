@@ -1,22 +1,24 @@
 {
     "domain": "acthor",
     "name": "AC•THOR",
-    "after_dependencies": [],
+    "after_dependencies": [
+        "modbus"
+    ],
     "bluetooth": [],
     "codeowners": [
         "@siku2"
     ],
     "config_flow": true,
-    "dependencies": [
-        "modbus"
-    ],
+    "dependencies": [],
     "dhcp": [],
     "documentation": "https://github.com/siku2/hass-acthor",
     "homekit": {},
     "integration_type": "device",
     "iot_class": "local_polling",
     "issue_tracker": "https://github.com/siku2/hass-acthor/issues",
-    "loggers": [],
+    "loggers": [
+        "pymodbus"
+    ],
     "mqtt": [],
     "requirements": [],
     "ssdp": [],
