@@ -59,9 +59,7 @@ class ACThorSwitch(ACThorEntity, SwitchEntity):
 
     def _reset_today_energy(self) -> None:
         self._today_energy = 0
-        tomorrow = datetime.datetime.now(datetime.UTC) + datetime.timedelta(
-            days=1
-        )
+        tomorrow = datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=1)
         midnight = datetime.datetime.combine(
             tomorrow.date(), datetime.time(0, 0), tzinfo=tomorrow.tzinfo
         )
