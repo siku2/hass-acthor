@@ -5,8 +5,9 @@ from typing import Any
 
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.helpers.entity import DeviceInfo
-from homeassistant.helpers.typing import HomeAssistantType
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import get_component
 from .acthor import ACThor
@@ -18,7 +19,9 @@ SECS_IN_HOUR = 60 * 60
 
 
 async def async_setup_entry(
-    hass: HomeAssistantType, config_entry: ConfigEntry, add_entities
+    hass: HomeAssistant,
+    config_entry: ConfigEntry,
+    add_entities: AddEntitiesCallback,
 ):
     component = get_component(hass, config_entry.entry_id)
     add_entities((ACThorSwitch(component.device, component.device_info),))
@@ -56,7 +59,7 @@ class ACThorSwitch(ACThorEntity, SwitchEntity):
 
     def _reset_today_energy(self) -> None:
         self._today_energy = 0
-        tomorrow = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
+        tomorrow = datetime.datetime.now(datetime.UTC) + datetime.timedelta(
             days=1
         )
         midnight = datetime.datetime.combine(

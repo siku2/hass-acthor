@@ -2,7 +2,8 @@ import abc
 import logging
 import typing
 
-from homeassistant.helpers.entity import Entity, DeviceInfo
+from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.entity import Entity
 
 from .acthor import ACThor
 

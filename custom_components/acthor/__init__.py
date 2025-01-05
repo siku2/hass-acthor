@@ -3,12 +3,13 @@ import logging
 import pymodbus.exceptions
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import ATTR_MODE, CONF_HOST
+from homeassistant.const import ATTR_MODE, CONF_HOST, Platform
+from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
-from homeassistant.helpers.entity import DeviceInfo
-from homeassistant.helpers.typing import ConfigType, HomeAssistantType, ServiceCallType
+from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.typing import ConfigType
 
 from .acthor import ACThor, OverrideMode
 from .config_flow import ACThorConfigFlow
@@ -29,10 +30,10 @@ SERVICE_BASE_SCHEMA = vol.Schema(
 )
 
 SERVICE_ACTIVATE_BOOST = "activate_boost"
-SERVICE_ACTIVATE_BOOST_SCHEMA = SERVICE_BASE_SCHEMA.extend({})
+SERVICE_ACTIVATE_BOOST_SCHEMA = SERVICE_BASE_SCHEMA.extend({})  # type: ignore
 
 SERVICE_SET_POWER = "set_power"
-SERVICE_SET_POWER_SCHEMA = SERVICE_BASE_SCHEMA.extend(
+SERVICE_SET_POWER_SCHEMA = SERVICE_BASE_SCHEMA.extend(  # type: ignore
     {
         vol.Required(ATTR_POWER): cv.positive_int,
         vol.Optional(ATTR_OVERRIDE, default=False): cv.boolean,
@@ -40,9 +41,11 @@ SERVICE_SET_POWER_SCHEMA = SERVICE_BASE_SCHEMA.extend(
     }
 )
 
+PLATFORMS = [Platform.SENSOR, Platform.SWITCH, Platform.WATER_HEATER]
 
-async def async_setup(hass: HomeAssistantType, config: ConfigType) -> bool:
-    async def handle_activate_boost(call: ServiceCallType) -> None:
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    async def handle_activate_boost(call: ServiceCall) -> None:
         component = _get_component_by_sn(hass, call.data.get(ATTR_DEVICE))
         await component.handle_activate_boost(call)
 
@@ -53,7 +56,7 @@ async def async_setup(hass: HomeAssistantType, config: ConfigType) -> bool:
         SERVICE_ACTIVATE_BOOST_SCHEMA,
     )
 
-    async def handle_set_power(call: ServiceCallType) -> None:
+    async def handle_set_power(call: ServiceCall) -> None:
         component = _get_component_by_sn(hass, call.data.get(ATTR_DEVICE))
         await component.handle_set_power(call)
 
@@ -67,7 +70,7 @@ async def async_setup(hass: HomeAssistantType, config: ConfigType) -> bool:
 _LOADED_ENTRIES: list[str] = []
 
 
-async def async_setup_entry(hass: HomeAssistantType, entry: ConfigEntry) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     data = entry.data
 
     try:
@@ -91,28 +94,15 @@ async def async_setup_entry(hass: HomeAssistantType, entry: ConfigEntry) -> bool
 
     get_components(hass)[entry.entry_id] = Component(hass, device, device_info)
 
-    for domain in ("sensor", "switch"):
-        hass.async_create_task(
-            hass.config_entries.async_forward_entry_setup(entry, domain)
-        )
-        _LOADED_ENTRIES.append(domain)
-
-    operation_mode = await device.operation_mode
-    if operation_mode.has_ww:
-        hass.async_create_task(
-            hass.config_entries.async_forward_entry_setup(entry, "water_heater")
-        )
-        _LOADED_ENTRIES.append("water_heater")
-
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
 
-async def async_unload_entry(
-    hass: HomeAssistantType, config_entry: ConfigEntry
-) -> bool:
-    if unload_ok := await hass.config_entries.async_unload_platforms(
-        config_entry, _LOADED_ENTRIES
-    ):
+async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
+    unload_ok = await hass.config_entries.async_unload_platforms(
+        config_entry, PLATFORMS
+    )
+    if unload_ok:
         component = get_components(hass).pop(config_entry.entry_id)
         await component.shutdown()
 
@@ -122,7 +112,7 @@ async def async_unload_entry(
 class Component:
     def __init__(
         self,
-        hass: HomeAssistantType,
+        hass: HomeAssistant,
         device: ACThor,
         device_info: DeviceInfo,
     ) -> None:
@@ -138,10 +128,10 @@ class Component:
         self.device.stop()
         await self.device.registers.disconnect()
 
-    async def handle_activate_boost(self, call: ServiceCallType) -> None:
+    async def handle_activate_boost(self, call: ServiceCall) -> None:
         await self.device.trigger_boost()
 
-    async def handle_set_power(self, call: ServiceCallType) -> None:
+    async def handle_set_power(self, call: ServiceCall) -> None:
         data = call.data
         power = int(data[ATTR_POWER])
         if data[ATTR_OVERRIDE]:
@@ -150,7 +140,7 @@ class Component:
             await self.device.set_power_excess(power)
 
 
-def get_components(hass: HomeAssistantType) -> dict[str, Component]:
+def get_components(hass: HomeAssistant) -> dict[str, Component]:
     ret: dict[str, Component]
     try:
         ret = hass.data[ACTHOR_DATA]
@@ -159,11 +149,11 @@ def get_components(hass: HomeAssistantType) -> dict[str, Component]:
     return ret
 
 
-def get_component(hass: HomeAssistantType, entry_id: str) -> Component:
+def get_component(hass: HomeAssistant, entry_id: str) -> Component:
     return get_components(hass)[entry_id]
 
 
-def _get_component_by_sn(hass: HomeAssistantType, sn: str | None) -> Component:
+def _get_component_by_sn(hass: HomeAssistant, sn: str | None) -> Component:
     comps = get_components(hass)
     if sn is None:
         if len(comps) != 1:

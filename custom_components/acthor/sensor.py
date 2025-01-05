@@ -1,16 +1,20 @@
 import typing
 
+from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import DEVICE_CLASS_POWER, POWER_WATT, STATE_UNKNOWN
-from homeassistant.helpers.entity import DeviceInfo
-from homeassistant.helpers.typing import HomeAssistantType
+from homeassistant.const import STATE_UNKNOWN, UnitOfPower
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import ACThor, get_component
 from .entity import ACThorEntity
 
 
 async def async_setup_entry(
-    hass: HomeAssistantType, config_entry: ConfigEntry, add_entities
+    hass: HomeAssistant,
+    config_entry: ConfigEntry,
+    add_entities: AddEntitiesCallback,
 ):
     component = get_component(hass, config_entry.entry_id)
     add_entities((ACThorSensor(component.device, component.device_info),))
@@ -34,11 +38,11 @@ class ACThorSensor(ACThorEntity):
 
     @property
     def unit_of_measurement(self) -> str:
-        return POWER_WATT
+        return UnitOfPower.WATT
 
     @property
     def device_class(self) -> str:
-        return DEVICE_CLASS_POWER
+        return SensorDeviceClass.POWER
 
     async def _handle_write_power(self, power: int) -> None:
         self._attrs["power_target"] = power

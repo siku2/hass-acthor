@@ -6,7 +6,7 @@ import typing
 
 import pymodbus.exceptions
 from pymodbus.client import AsyncModbusTcpClient
-from pymodbus.register_read_message import ReadHoldingRegistersResponse
+from pymodbus.pdu.register_read_message import ReadHoldingRegistersResponse
 
 from .event_target import EventTarget
 from .registers import ACThorRegistersMixin
@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 MODBUS_PORT = 502
 
 
-async def test_connection(host: str, *, timeout: int | None = None) -> bool:
-    client = AsyncModbusTcpClient(host, port=MODBUS_PORT, timeout=timeout)
+async def test_connection(host: str, *, timeout: float | None = None) -> bool:
+    client = AsyncModbusTcpClient(host, port=MODBUS_PORT, timeout=timeout or 3.0)
     try:
         return await client.connect()
     except Exception:
@@ -45,9 +45,9 @@ class ACThorRegisters(ACThorRegistersMixinWithEvents):
         self._lock = asyncio.Lock()
 
     @classmethod
-    async def connect(cls, host: str, *, timeout: int | None = None):
+    async def connect(cls, host: str, *, timeout: float | None = None):
         logger.info("connecting to %r", host)
-        client = AsyncModbusTcpClient(host, port=MODBUS_PORT, timeout=timeout)
+        client = AsyncModbusTcpClient(host, port=MODBUS_PORT, timeout=timeout or 3.0)
         if not await client.connect():
             raise pymodbus.exceptions.ConnectionException("not connected")
         return cls(client)
@@ -62,7 +62,7 @@ class ACThorRegisters(ACThorRegistersMixinWithEvents):
     async def read_registers(self, address: int, count: int) -> tuple[int, ...]:
         async with self._lock:
             logger.debug("reading %r register(s) from %r", count, address)
-            tmp = self._client.read_holding_registers(address, count)
+            tmp = self._client.read_holding_registers(address, count=count)
             result = await typing.cast(
                 typing.Awaitable[ReadHoldingRegistersResponse], tmp
             )
@@ -77,7 +77,7 @@ class ACThorRegisters(ACThorRegistersMixinWithEvents):
     async def write_registers(self, address: int, values: list[int]) -> None:
         async with self._lock:
             logger.debug("writing %r to registers starting at %r", values, address)
-            tmp = self._client.write_registers(address, values)
+            tmp = self._client.write_registers(address, values)  # type: ignore
             await typing.cast(typing.Awaitable[None], tmp)
 
     async def disconnect(self) -> None:

@@ -1,7 +1,7 @@
 import typing
 
 import voluptuous as vol
-from homeassistant.config_entries import ConfigFlow, data_entry_flow
+from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_HOST, CONF_NAME
 
 from .acthor import test_connection
@@ -11,8 +11,8 @@ from .const import DEVICE_NAME, DOMAIN
 class ACThorConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_user(
         self, user_input: dict[str, typing.Any] | None = None
-    ) -> data_entry_flow.FlowResult:
-        errors = {}
+    ) -> ConfigFlowResult:
+        errors: dict[str, str] = {}
         if user_input is not None:
             ok = await test_connection(user_input[CONF_HOST], timeout=5)
             if ok:

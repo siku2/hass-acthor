@@ -50,7 +50,7 @@ class ReadOnly(SingleRegister, ReadOnlyMixin[int | float]):
 class ReadOnlyText(MultiRegister, ReadOnlyMixin[str]):
     __slots__ = ()
 
-    async def read(self, protocol: ABCModbusProtocol) -> str:
+    async def read(self, protocol: ABCModbusProtocol) -> str:  # type: ignore
         values = await super().read(protocol)
         return "".join(
             chr(value >> 8) + chr(value & 0xFF) for value in map(int, values)
@@ -76,11 +76,11 @@ def bytes_to_i16(it: typing.Iterable[int]) -> typing.Iterator[int]:
 class ReadWriteMulti(MultiRegister, ReadWriteMixin[int]):
     __slots__ = ()
 
-    async def read(self, protocol: ABCModbusProtocol) -> int:
+    async def read(self, protocol: ABCModbusProtocol) -> int:  # type: ignore
         values = await super().read(protocol)
         return int.from_bytes(tuple(i16s_to_bytes(map(int, values))), "big")
 
-    async def write(self, protocol: ABCModbusProtocol, value: int) -> None:
+    async def write(self, protocol: ABCModbusProtocol, value: int) -> None:  # type: ignore
         byte_parts = value.to_bytes(2 * self._length, "big")
         await super().write(protocol, bytes_to_i16(byte_parts))
 
@@ -386,7 +386,7 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
         first_temp, other_temps = await asyncio.gather(
             self.temp1, self._temp_range_2_8.read(self)
         )
-        return (first_temp, *other_temps)
+        return (first_temp, *other_temps)  # type: ignore
 
     async def get_temp(self, sensor: int) -> float:
         """Read the value of a temperature sensor.
@@ -406,12 +406,12 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
         hour, minute, second = await self._hms_range.read(self)
 
         # TODO build tzinfo
-        tzinfo = datetime.timezone.utc
+        tzinfo = datetime.UTC
 
         return datetime.time(
-            hour,
-            minute,
-            second,
+            int(hour),
+            int(minute),
+            int(second),
             tzinfo=tzinfo,
         )
 
@@ -424,4 +424,4 @@ class ACThorRegistersMixin(ABCModbusProtocol, abc.ABC):
         maj, sub = await asyncio.gather(
             self.control_firmware_version, self.control_firmware_subversion
         )
-        return maj, sub
+        return int(maj), int(sub)

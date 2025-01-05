@@ -7,18 +7,25 @@ from homeassistant.components.water_heater import (
     WaterHeaterEntityFeature,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import STATE_OFF, STATE_ON, TEMP_CELSIUS
-from homeassistant.helpers.entity import DeviceInfo
-from homeassistant.helpers.typing import HomeAssistantType
+from homeassistant.const import STATE_OFF, STATE_ON, UnitOfTemperature
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import ACThor, get_component
 from .entity import ACThorEntity
 
 
 async def async_setup_entry(
-    hass: HomeAssistantType, config_entry: ConfigEntry, add_entities
+    hass: HomeAssistant,
+    config_entry: ConfigEntry,
+    add_entities: AddEntitiesCallback,
 ):
     component = get_component(hass, config_entry.entry_id)
+    operation_mode = await component.device.operation_mode
+    if not operation_mode.has_ww:
+        return
+
     add_entities(
         (ACThorWaterHeater(component.device, component.device_info, temp_sensor=1),)
     )
@@ -54,7 +61,7 @@ class ACThorWaterHeater(ACThorEntity, WaterHeaterEntity):
 
     @property
     def temperature_unit(self) -> str:
-        return TEMP_CELSIUS
+        return UnitOfTemperature.CELSIUS
 
     @property
     def supported_features(self) -> WaterHeaterEntityFeature:

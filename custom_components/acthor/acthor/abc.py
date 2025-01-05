@@ -74,7 +74,9 @@ class MultiRegister(BaseRegister):
         return tuple(val / fac for val in values)
 
     async def write(
-        self, protocol: ABCModbusProtocol, values: typing.Iterable[float | int]
+        self,
+        protocol: ABCModbusProtocol,
+        values: typing.Iterable[float | int],
     ) -> None:
         fac = self._factor
         if fac is not None:
