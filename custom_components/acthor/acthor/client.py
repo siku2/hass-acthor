@@ -6,10 +6,13 @@ import typing
 
 import pymodbus.exceptions
 from pymodbus.client import AsyncModbusTcpClient
-from pymodbus.pdu.register_read_message import ReadHoldingRegistersResponse
 
 from .event_target import EventTarget
 from .registers import ACThorRegistersMixin
+
+if typing.TYPE_CHECKING:
+    from pymodbus.pdu.register_message import ReadHoldingRegistersResponse
+
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +67,7 @@ class ACThorRegisters(ACThorRegistersMixinWithEvents):
             logger.debug("reading %r register(s) from %r", count, address)
             tmp = self._client.read_holding_registers(address, count=count)
             result = await typing.cast(
-                typing.Awaitable[ReadHoldingRegistersResponse], tmp
+                "typing.Awaitable[ReadHoldingRegistersResponse]", tmp
             )
         return tuple(result.registers)
 
