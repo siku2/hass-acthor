@@ -1,5 +1,13 @@
 # AC•THOR Home Assistant Integration
 
+
+> [!IMPORTANT]  
+> This integration is very old and hasn't really been kept up to date with modern Home Assistant standards.
+>
+> Check out the [mypv integration by @dneprojects](https://github.com/dneprojects/mypv).
+>
+> One major difference is that it uses the REST API rather than connecting over Modbus.
+
 [![GitHub Release](https://img.shields.io/github/release/siku2/hass-acthor.svg?style=flat-square)](https://github.com/siku2/hass-acthor/releases)
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg?style=flat-square)](https://hacs.xyz/docs/faq/custom_repositories)
 
